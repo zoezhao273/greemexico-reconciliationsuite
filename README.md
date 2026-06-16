@@ -1,4 +1,4 @@
-# NCC × CFDI Reconciliation Suite
+# Reconciliation Suite
 
 A single, self-contained HTML tool (no install, no server — open `reconciliation_suite.html` in a browser) that cross-checks NCC accounting documents against the official CFDI invoice file and assembles the DIOT compliance report. The **CFDI file is always the source of truth** for invoice status, amounts, exchange rate, and issuer RFC.
 
