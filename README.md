@@ -51,7 +51,7 @@ Reconciliation runs per detail line and per `(record × UUID)` group. A single i
 
 **Check 1 — Duplicate UUIDs.** Runs first. When a real UUID appears on more than one record, the tool tells two cases apart automatically: equal partial shares that sum within the invoice total (or a `Bank Charges` item / `PPD` payment) are treated as an **amortized invoice** — expected, with total/VAT/month relaxed. Full-amount repeats are flagged as a **possible duplicate reimbursement**. Placeholder UUIDs and repeats within one record are never counted as duplicates.
 
-**Check 2 — Valid UUID.** Each detail-line UUID must exist in the CFDI file. A stray `:` prefix, spaces, or unusual dashes are tolerated; anything still unmatched is flagged. If a UUID *is* found but its `Estatus` is not `Vigente` (e.g. `Cancelado`), the line is flagged with the expected `Vigente` vs. the actual status, and downstream total/VAT/FX/withholding checks are skipped because the invoice is already invalid. A line whose `Material = Non-Deductible Expense` is exempt from the *not-found* case only — these legitimately have no CFDI; a non-Vigente status is flagged regardless of material.
+**Check 2 — Valid UUID.** A UUID is valid only when it satisfies **both** conditions: it **exists** in the CFDI file **and** the matched invoice's `Estatus` is exactly `Vigente`. A stray `:` prefix, spaces, or unusual dashes are tolerated; anything still unmatched is flagged as *not found*. If a UUID *is* found but its `Estatus` is not `Vigente` (e.g. `Cancelado`), the line is flagged — the **CFDI** column shows the actual status and the **NCC** column shows the UUID — and downstream withholding/total/VAT/FX/cash checks are skipped because the invoice is already invalid. A line whose `Material = Non-Deductible Expense` is exempt from the *not-found* case only — these legitimately have no CFDI; a non-`Vigente` status is flagged regardless of material. If the CFDI file carries no status at all, the Vigente sub-check is silently skipped.
 
 **Check 3 — Posting month.** NCC `DocDate` month must equal CFDI `Emisión` month. Runs only when the record is a `DocNo` starting with `AP` *and* `A/PType = CA Reimbursement`, or when the supplier contains `PETTY CASH`.
 
@@ -74,7 +74,8 @@ If both conditions apply, only the gasoline message is shown (no double-flagging
 
 - Records whose supplier is `GREE AIRCONDITIONING MEXICO` or `CDMX GOV` (salary / tax related).
 - `PY` documents whose `PmtType` is `Cash Advance Payment` or `Cash Avance Return` (not invoice related).
-- Any UUID or `DocNo.` marked reviewed on the **whitelist** panel. A whitelisted UUID exempts that invoice wherever it appears.
+- Any UUID or `DocNo.` marked reviewed on the **whitelist** panel. A whitelisted standard SAT UUID exempts that invoice wherever it appears; a `DocNo.` exempts the whole expense record.
+- A reviewed whitelist entry that is **neither** a standard UUID **nor** a matched `DocNo.` — e.g. a **foreign-invoice number** such as `26427000000277781101` or `ZSPE26021337A` that legitimately has no CFDI — is matched against the NCC invoice-number column, exempting that line from the *UUID-not-found* flag (and every downstream check) once reviewed.
 
 Because Check 8 runs inside the grouped pass, it inherits all of these exemptions automatically, as well as the amortized-invoice relaxation from Check 1.
 
