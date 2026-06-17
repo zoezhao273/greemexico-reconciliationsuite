@@ -1,0 +1,3265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCC &times; CFDI Reconciliation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#16212B; --ink-2:#33424F; --bg:#EDF0F3; --surface:#FFFFFF;
+    --teal:#156C63; --teal-press:#0F5650; --teal-soft:#E4EFED;
+    --pass:#1C8C5A; --warn:#9A6700; --err:#B23A2E;
+    --line:#DBE0E6; --mute:#6B7785;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans); background:var(--bg); color:var(--ink);
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 24px}
+
+  /* ---------- Header / tie-out motif ---------- */
+  header.masthead{ background:var(--ink); color:#EAF0F2; padding:34px 0 30px; }
+  .eyebrow{ font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:#8CA3AE; font-weight:600; margin:0 0 10px }
+  .masthead h1{ font-size:30px; font-weight:800; letter-spacing:-.02em; margin:0; line-height:1.1 }
+  .masthead p{ margin:10px 0 0; color:#A9BAC3; max-width:60ch; font-size:14.5px }
+  .tieout{ display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap }
+  .ledgertag{ font-family:var(--mono); font-size:12px; letter-spacing:.04em;
+    border:1px solid #2E3E49; background:#1C2A35; color:#CFE0E5;
+    padding:7px 12px; border-radius:6px; display:inline-flex; gap:8px; align-items:center }
+  .ledgertag b{ color:#fff; font-weight:700 }
+  .tie{ color:var(--teal); font-size:20px; font-weight:700 }
+  .tie-soft{ color:#5B7C82 }
+
+  /* ---------- Cards / steps ---------- */
+  main{ padding:32px 0 64px }
+  .steplabel{ font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--mute); font-weight:700; margin:0 0 12px }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 1px 2px rgba(22,33,43,.04) }
+
+  .uploads{ display:grid; grid-template-columns:1fr auto 1fr; gap:18px; align-items:stretch }
+  .drop{ padding:22px; cursor:pointer; transition:border-color .15s, background .15s; position:relative }
+  .drop:hover{ border-color:var(--teal) }
+  .drop.loaded{ border-color:var(--pass); background:#F4FAF6 }
+  .drop.drag{ border-color:var(--teal); background:var(--teal-soft) }
+  .drop .role{ font-family:var(--mono); font-size:12px; color:var(--teal); font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase }
+  .drop h3{ margin:6px 0 4px; font-size:16px; font-weight:700 }
+  .drop .hint{ font-size:13px; color:var(--mute); margin:0 }
+  .drop .fname{ display:none; margin-top:12px; font-family:var(--mono); font-size:12.5px;
+    color:var(--ink-2); word-break:break-all }
+  .clearbtn{ display:none; position:absolute; top:12px; right:12px; z-index:2;
+    font-family:var(--sans); font-size:11.5px; font-weight:700; color:var(--mute);
+    background:#fff; border:1px solid var(--line); border-radius:7px; padding:4px 10px; cursor:pointer }
+  .clearbtn:hover{ color:var(--err); border-color:#E7C3BD; background:#FCF4F2 }
+  .drop.loaded .clearbtn{ display:inline-block }
+  .drop .meta{ display:none; margin-top:4px; font-size:12px; color:var(--pass); font-weight:600 }
+  .drop.loaded .fname, .drop.loaded .meta{ display:block }
+  .tiecol{ display:flex; align-items:center; justify-content:center }
+  .tiecol span{ font-size:24px; color:var(--tie-soft, #9AAAB3) }
+
+  .runrow{ display:block; margin-top:20px }
+  button.run{ font-family:var(--sans); font-size:15px; font-weight:700; color:#fff;
+    background:var(--teal); border:none; border-radius:9px; padding:14px 24px; cursor:pointer;
+    transition:background .15s, transform .05s;
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px }
+  button.run:hover:not(:disabled){ background:var(--teal-press) }
+  button.run:active:not(:disabled){ transform:translateY(1px) }
+  button.run:disabled{ background:#B7C2C9; cursor:not-allowed }
+  .runnote{ display:block; font-size:13px; color:var(--mute); margin-top:10px }
+
+  .alert{ display:none; margin-top:16px; padding:13px 16px; border-radius:9px;
+    font-size:13.5px; border:1px solid }
+  .alert.err{ background:#FBEEEC; border-color:#E7C3BD; color:#8A2C22 }
+
+  /* ---------- Summary ---------- */
+  section.results{ display:none; margin-top:34px }
+  .scards{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:8px }
+  .scard{ padding:16px 18px }
+  .scard .n{ font-size:30px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums }
+  .scard .l{ font-size:12px; color:var(--mute); margin-top:2px; font-weight:600 }
+  .scard.flag .n{ color:var(--err) }
+  .scard.clean .n{ color:var(--pass) }
+
+  .breakdown{ display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 22px }
+  .chip{ font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:20px;
+    border:1px solid var(--line); background:#fff; color:var(--ink-2); display:inline-flex; gap:7px; align-items:center }
+  .chip .dot{ width:8px; height:8px; border-radius:50% }
+  .chip b{ font-variant-numeric:tabular-nums }
+
+  /* ---------- Table ---------- */
+  .tablehead{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px; flex-wrap:wrap; gap:12px }
+  .tablehead h2{ font-size:18px; margin:0; font-weight:800 }
+  button.export{ font-family:var(--sans); font-size:13px; font-weight:700; color:var(--teal);
+    background:#fff; border:1px solid var(--teal); border-radius:8px; padding:9px 16px; cursor:pointer }
+  button.export:hover{ background:var(--teal-soft) }
+  .tablecard{ overflow:hidden; padding:0 }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px }
+  thead th{ text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--mute); font-weight:700; padding:12px 16px; border-bottom:1px solid var(--line); background:#FAFBFC }
+  tbody td{ padding:13px 16px; border-bottom:1px solid #EEF1F3; vertical-align:top }
+  tbody tr:last-child td{ border-bottom:none }
+  tbody tr:hover{ background:#FBFCFD }
+  .mono{ font-family:var(--mono); font-size:12.5px }
+  .docno{ font-family:var(--mono); font-weight:600; color:var(--ink) }
+  .reimb{ font-family:var(--mono); color:var(--ink-2) }
+  .material{ color:var(--ink-2); font-size:12.5px; max-width:22ch }
+  .badge{ font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:6px; white-space:nowrap }
+  .b-uuid{ background:#FBEEEC; color:#8A2C22 }
+  .b-month{ background:#FBF3DF; color:#7A5200 }
+  .b-total{ background:#FCE9DD; color:#8A3B14 }
+  .b-iva{ background:#FCE9DD; color:#8A3B14 }
+  .b-fx{ background:#E0ECF6; color:#1F4E66 }
+  .b-wht{ background:#FBF3DF; color:#7A5200 }
+  .b-cash{ background:#EFE7F6; color:#5B3B8C }
+  .reason{ color:var(--ink-2); max-width:34ch }
+  .cfdi-v{ font-family:var(--mono); color:var(--pass); font-size:12.5px; word-break:break-all }
+  .ncc-v{ font-family:var(--mono); color:var(--err); font-size:12.5px; word-break:break-all }
+  .uuid-v{ font-family:var(--mono); color:var(--ink-2); font-size:11.5px; word-break:break-all }
+  .status-v{ color:var(--ink-2); font-size:12.5px; white-space:nowrap }
+  .b-cancel{ background:#F8D7D2; color:#8A1C12; border:1px solid #E7B0A8; text-transform:uppercase; letter-spacing:.04em }
+  tbody tr.row-cancel{ background:#FCF1EF }
+  tbody tr.row-cancel:hover{ background:#FAE8E4 }
+  tbody tr.row-cancel td{ border-bottom-color:#F0D6D1 }
+
+  .clean-state{ display:none; text-align:center; padding:48px 24px }
+  .clean-state .mark{ font-size:38px; color:var(--pass) }
+  .clean-state h2{ margin:8px 0 4px; font-size:20px }
+  .clean-state p{ color:var(--mute); margin:0 }
+
+  /* ---------- Duplicate UUID panel ---------- */
+  .dup-panel{ display:none; padding:18px 20px; margin-bottom:22px; border-color:#E7C3BD;
+    background:#FCF4F2 }
+  .dup-head{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px }
+  .dup-mark{ color:var(--err); font-size:22px; line-height:1 }
+  .dup-head h3{ margin:0 0 4px; font-size:16px; font-weight:800; color:#8A2C22 }
+  .dup-head p{ margin:0; font-size:13px; color:var(--ink-2); max-width:70ch }
+  .dup-table{ width:100%; border-collapse:collapse; font-size:13.5px }
+  .dup-table th{ text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--mute); font-weight:700; padding:9px 12px; border-bottom:1px solid #E7C3BD }
+  .dup-table td{ padding:11px 12px; border-bottom:1px solid #F0DAD5; vertical-align:top }
+  .dup-table tr:last-child td{ border-bottom:none }
+  .dup-uuid{ font-family:var(--mono); font-size:12px; font-weight:600; color:#8A2C22; word-break:break-all }
+  .dup-recs{ display:flex; flex-direction:column; gap:5px }
+  .dup-rec{ font-family:var(--mono); font-size:12.5px; color:var(--ink) }
+  .dup-rec .rno{ color:var(--mute) }
+
+  /* ---------- Amortized (expected) panel ---------- */
+  .amort-panel{ display:none; padding:18px 20px; margin-bottom:22px; border-color:#BFE0DA;
+    background:#F0F8F6 }
+  .amort-head{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px }
+  .amort-mark{ color:var(--teal); font-size:22px; line-height:1; font-weight:700 }
+  .amort-head h3{ margin:0 0 4px; font-size:16px; font-weight:800; color:var(--teal-press) }
+  .amort-head p{ margin:0; font-size:13px; color:var(--ink-2); max-width:74ch }
+  .amort-table{ width:100%; border-collapse:collapse; font-size:13.5px }
+  .amort-table th{ text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--mute); font-weight:700; padding:9px 12px; border-bottom:1px solid #BFE0DA }
+  .amort-table td{ padding:11px 12px; border-bottom:1px solid #D7EBE6; vertical-align:top }
+  .amort-table tr:last-child td{ border-bottom:none }
+  .amort-uuid{ font-family:var(--mono); font-size:12px; font-weight:600; color:var(--teal-press); word-break:break-all }
+  .amort-inv{ font-family:var(--mono); font-size:12.5px; color:var(--ink) }
+  .amort-inv .sub{ color:var(--mute); font-size:11.5px }
+  .amort-share{ font-family:var(--mono); font-size:12.5px; color:var(--ink); font-weight:600 }
+  .amort-share .k{ display:block; color:var(--teal-press); font-size:11.5px; font-weight:700; margin-top:2px }
+  .amort-rec{ font-family:var(--mono); font-size:12.5px; color:var(--ink); display:flex; flex-direction:column; gap:4px }
+  .amort-rec .line .m{ color:var(--mute) }
+  .pill{ display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:700; padding:1px 6px;
+    border-radius:5px; background:#DDEBF7; color:#1F4E66; margin-left:6px }
+
+  /* ---------- Reference ---------- */
+  .reference{ margin-top:40px }
+  .reference h2{ font-size:15px; margin:0 0 14px; font-weight:800 }
+
+  /* Collapsible "What gets checked" disclosure */
+  .reference-acc{ margin-top:40px; border:1px solid var(--line); border-radius:12px;
+    background:var(--surface); box-shadow:0 1px 2px rgba(22,33,43,.04); overflow:hidden }
+  .reference-acc > summary{ list-style:none; cursor:pointer; outline:none }
+  .reference-acc > summary::-webkit-details-marker{ display:none }
+  .ref-bar{ display:flex; align-items:center; gap:12px; padding:16px 20px; user-select:none;
+    transition:background .15s }
+  .reference-acc > summary:hover .ref-bar{ background:var(--teal-soft) }
+  .reference-acc > summary:focus-visible .ref-bar{ box-shadow:inset 0 0 0 2px var(--teal-soft) }
+  .ref-title{ font-size:15px; font-weight:800; color:var(--ink); letter-spacing:-.01em }
+  .ref-chev{ margin-left:auto; color:var(--mute); font-size:12px; line-height:1;
+    transition:transform .25s ease; flex-shrink:0 }
+  .reference-acc[open] .ref-chev{ transform:rotate(180deg) }
+  .reference-acc[open] .ref-bar{ border-bottom:1px solid var(--line) }
+  .ref-body{ padding:18px 20px 20px }
+
+  .checks{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+  .check{ padding:15px 17px; font-size:13px }
+  .check .num{ font-family:var(--mono); font-weight:700; color:var(--teal); font-size:12px }
+  .check h4{ margin:4px 0 5px; font-size:14px; font-weight:700 }
+  .check p{ margin:0; color:var(--ink-2) }
+  .check code{ font-family:var(--mono); font-size:11.5px; background:#F0F3F5; padding:1px 5px; border-radius:4px; color:var(--ink) }
+  .datebox{ margin-top:14px; padding:14px 16px; font-size:12.5px; color:var(--ink-2);
+    background:#F7F9FA; border:1px solid var(--line); border-radius:10px }
+  .datebox b{ color:var(--ink) }
+
+  footer{ color:var(--mute); font-size:12px; padding:24px 0 40px; text-align:center }
+
+  @media (max-width:760px){
+    .uploads{ grid-template-columns:1fr }
+    .tiecol{ transform:rotate(90deg); padding:4px 0 }
+    .scards{ grid-template-columns:1fr 1fr }
+    .checks{ grid-template-columns:1fr }
+    .masthead h1{ font-size:24px }
+  }
+  .opt{ font-size:10px; color:var(--mute); border:1px solid var(--line); border-radius:10px;
+    padding:1px 7px; margin-left:8px; vertical-align:middle; text-transform:none; letter-spacing:0; font-weight:600 }
+  .wl-card{ padding:16px 20px; margin-bottom:22px }
+  .wl-toggle{ width:100%; display:flex; align-items:center; gap:10px; background:none; border:none;
+    padding:2px 0; cursor:pointer; font:inherit; text-align:left; color:var(--ink) }
+  .wl-chev{ color:var(--mute); font-size:12px; display:inline-block; transition:transform .15s }
+  .wl-card.open .wl-chev{ transform:rotate(90deg) }
+  .wl-tt{ font-weight:600; font-size:14px }
+  .wl-toggle .wl-count{ margin:0 0 0 2px }
+  .wl-toggle .sync-status{ margin-left:auto }
+  .wl-body{ display:none; margin-top:14px }
+  .wl-card.open .wl-body{ display:block }
+  .wl-intro{ margin:0 0 10px; color:var(--ink-2); font-size:13px; line-height:1.55 }
+  .wl-search{ width:100%; padding:8px 11px; border:1px solid var(--line); border-radius:8px;
+    font:inherit; font-size:13px; background:var(--bg); box-sizing:border-box; margin-bottom:10px }
+  .wl-search:focus{ outline:none; border-color:var(--teal); background:#fff }
+  .sync-status{ font-size:12px; padding:5px 11px; border-radius:20px; font-weight:600; display:inline-flex;
+    align-items:center; gap:6px; white-space:nowrap; flex-shrink:0 }
+  .sync-status.ok{ background:var(--teal-soft); color:var(--teal-press) }
+  .sync-status.loading{ background:#EEF1F4; color:var(--mute) }
+  .sync-status.err{ background:#FBECEA; color:var(--err) }
+  .spinner{ width:11px; height:11px; border:2px solid currentColor; border-top-color:transparent;
+    border-radius:50%; display:inline-block; animation:wlspin .7s linear infinite }
+  @keyframes wlspin{ to{ transform:rotate(360deg) } }
+  .wl-btn{ border:1px solid var(--teal); background:var(--teal); color:#fff; border-radius:8px;
+    padding:9px 15px; font:inherit; font-size:13px; cursor:pointer; white-space:nowrap }
+  .wl-btn.ghost{ background:transparent; color:var(--teal) }
+  .wl-btn:hover:not(:disabled){ background:var(--teal-press); border-color:var(--teal-press) }
+  .wl-btn.ghost:hover:not(:disabled){ background:var(--teal-soft); color:var(--teal-press) }
+  .wl-btn:disabled{ opacity:.6; cursor:default }
+  .wl-status{ font-size:12px; min-height:15px; margin-top:10px; color:var(--mute) }
+  .wl-status.ok{ color:var(--teal) } .wl-status.bad{ color:var(--err) }
+  .wl-tablewrap{ overflow:auto; max-height:300px; border:1px solid var(--line); border-radius:9px }
+  .wl-table{ width:100%; border-collapse:collapse; font-size:13px }
+  .wl-table th{ text-align:left; padding:8px 10px; background:var(--bg); border-bottom:1px solid var(--line);
+    color:var(--mute); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+    position:sticky; top:0; z-index:1 }
+  .wl-table td{ padding:3px 8px; border-bottom:1px solid var(--line) }
+  .wl-table tr:last-child td{ border-bottom:none }
+  .wl-table input[type=text]{ width:100%; border:1px solid transparent; background:transparent;
+    font:inherit; font-size:12.5px; padding:6px; border-radius:6px; box-sizing:border-box }
+  .wl-table input[type=text]:focus{ border-color:var(--line); background:var(--bg); outline:none }
+  .wl-table .c-uuid input{ font-family:var(--mono); font-size:11.5px }
+  .wl-table .c-rev{ text-align:center; width:84px } .wl-table .c-rev input{ width:16px; height:16px; cursor:pointer; accent-color:var(--teal) }
+  .wl-table .c-del{ width:36px; text-align:center }
+  .wl-del{ border:none; background:transparent; color:var(--mute); cursor:pointer; font-size:16px; line-height:1; padding:4px }
+  .wl-del:hover{ color:var(--err) }
+  .wl-empty td{ color:var(--mute); font-size:12.5px; padding:12px; text-align:center }
+  .wl-actions{ display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap }
+  .wl-count{ margin-left:auto; font-size:12px; color:var(--mute) }
+  .wl-count b{ color:var(--teal) }
+  .wl-adv{ margin-top:14px; border-top:1px solid var(--line); padding-top:12px }
+  .wl-adv summary{ cursor:pointer; font-size:12px; color:var(--mute); font-weight:600; user-select:none }
+  .wl-adv summary:hover{ color:var(--teal) }
+  .wl-lbl{ display:block; margin:12px 0 5px; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em }
+  .wl-adv input{ width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px;
+    font-family:var(--mono); font-size:12px; background:var(--bg); box-sizing:border-box }
+  .wl-adv input:focus{ outline:none; border-color:var(--teal); background:#fff }
+  .wl-note{ margin:8px 0 0; font-size:11.5px; color:var(--mute); line-height:1.5 }
+
+/* ===== Suite shell: two-step nav + page switching ===== */
+main{ padding:18px 0 64px }
+.stepnav{ position:sticky; top:0; z-index:30; background:rgba(255,255,255,.93);
+  backdrop-filter:saturate(1.5) blur(8px); -webkit-backdrop-filter:saturate(1.5) blur(8px);
+  border-bottom:1px solid var(--line); }
+.stepnav .wrap{ display:flex; gap:0; }
+.stepnav-btn{ display:inline-flex; align-items:center; gap:10px; padding:15px 4px; margin-right:26px;
+  background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px;
+  font-family:var(--sans); font-size:14px; font-weight:600; color:var(--mute);
+  cursor:pointer; transition:color .15s, border-color .15s; white-space:nowrap; }
+.stepnav-btn .num{ width:21px; height:21px; border-radius:50%; background:#E3E8EC; color:var(--mute);
+  font-size:11.5px; font-weight:800; display:inline-flex; align-items:center; justify-content:center;
+  transition:background .15s, color .15s; flex-shrink:0; }
+.stepnav-btn:hover:not(.active){ color:var(--ink-2); }
+.stepnav-btn.active{ color:var(--ink); border-bottom-color:var(--teal); }
+.stepnav-btn.active .num{ background:var(--teal); color:#fff; }
+.view{ display:none; }
+.view.active{ display:block; }
+.page-head{ padding:20px 0 6px; }
+.page-title{ font-size:21px; font-weight:800; letter-spacing:-.02em; margin:0; }
+.page-sub{ margin:8px 0 0; color:var(--ink-2); font-size:14px; max-width:74ch; line-height:1.55; }
+.page-head .tieout{ margin-top:18px; }
+.page-head .ledgertag{ background:#fff; border-color:var(--line); color:var(--ink-2); }
+.page-head .ledgertag b{ color:var(--ink); }
+.page-head .tie{ color:var(--teal); }
+.page-head .tie-soft{ color:var(--mute); }
+@media (max-width:640px){ .stepnav-btn{ font-size:13px; margin-right:16px; } }
+/* ===== Bank tool (scoped under #view-bank) ===== */
+:where(#view-bank) *{ margin:0; padding:0 }
+#view-bank td{ vertical-align:middle }
+:root{
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    
+    --ink:          #16212B;
+    --ink2:         #33424F;
+    --ink3:         #6B7785;
+    --paper:        #EDF0F3;
+    --paper2:       #F4F6F8;
+    --paper3:       #E8ECF0;
+    --surface:      #FFFFFF;
+    --accent:       #156C63;
+    --accent2:      #0F5650;
+    --accent-light: #E4EFED;
+    --accent-mid:   #BFE0DA;
+    --pass:         #1C8C5A;
+    --warn:         #9A6700;
+    --warn-light:   #FBF3DF;
+    --warn-mid:     #E8D08A;
+    --err:          #B23A2E;
+    --err-light:    #FBEEEC;
+    --err-mid:      #E7C3BD;
+    --match-light:  #F4FAF6;
+    --border:       #DBE0E6;
+    --border-light: #EEF1F3;
+  }
+#view-bank .container{position:relative;max-width:none;margin:0;padding:18px 0 64px}
+#view-bank .section-label{
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+#view-bank .section-label::after{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-bank .upload-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+@media (max-width: 560px){
+#view-bank .upload-grid{ grid-template-columns: 1fr; }
+}
+#view-bank .upload-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 22px 20px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.12s;
+    position: relative;
+    display: block;
+  }
+#view-bank .upload-card:hover{
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-1px);
+  }
+#view-bank .upload-card.dragover{ border-color: var(--accent); background: var(--accent-light); }
+#view-bank .upload-card.loaded{
+    border-color: var(--pass);
+    background: #F4FAF6;
+  }
+#view-bank .upload-card input[type=file]{
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+#view-bank .upload-role{
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+#view-bank .upload-title{
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 6px 0 4px;
+    line-height: 1.3;
+  }
+#view-bank .upload-hint{
+    font-size: 13px;
+    color: var(--ink3);
+    line-height: 1.5;
+    margin: 0;
+  }
+#view-bank .upload-filename{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--pass);
+    margin-top: 12px;
+    word-break: break-all;
+    display: none;
+    font-weight: 600;
+  }
+#view-bank .upload-card.loaded .upload-filename{ display: block; }
+#view-bank .optional-row{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 0 2px;
+  }
+#view-bank .optional-label{
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    white-space: nowrap;
+  }
+#view-bank .optional-line{
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-bank .options-row{ margin-bottom: 20px; }
+#view-bank .option-toggle{
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 18px;
+    transition: border-color 0.18s, background 0.18s;
+    user-select: none;
+    width: 100%;
+  }
+#view-bank .option-toggle:hover{ border-color: var(--accent); background: var(--accent-light); }
+#view-bank .option-toggle input[type=checkbox]{ display: none; }
+#view-bank .toggle-track{
+    flex-shrink: 0;
+    position: relative;
+    width: 38px; height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    transition: background 0.2s;
+  }
+#view-bank .option-toggle input:checked ~ .toggle-track{ background: var(--accent); }
+#view-bank .toggle-thumb{
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+#view-bank .option-toggle input:checked ~ .toggle-track .toggle-thumb{ transform: translateX(16px); }
+#view-bank .option-text{ display: flex; flex-direction: column; gap: 2px; }
+#view-bank .option-title{ font-size: 12px; font-weight: 500; color: var(--ink); }
+#view-bank .option-desc{ font-size: 10px; color: var(--ink3); }
+#view-bank .clear-btn{
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink3);
+    cursor: pointer;
+    transition: color 0.15s;
+    margin-left: auto;
+  }
+#view-bank .clear-btn.visible{ display: flex; }
+#view-bank .clear-btn:hover{ color: var(--err); }
+#view-bank .clear-btn-dot{
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+#view-bank .error-banner{
+    background: var(--err-light);
+    border: 1px solid var(--err-mid);
+    border-left: 3px solid var(--err);
+    border-radius: 9px;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #8A2C22;
+    margin-bottom: 16px;
+    display: none;
+  }
+#view-bank .run-btn{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.05s;
+    margin-bottom: 28px;
+  }
+#view-bank .run-btn:hover:not(:disabled){
+    background: var(--accent2);
+  }
+#view-bank .run-btn:active:not(:disabled){ transform: translateY(1px); }
+#view-bank .run-btn:disabled{
+    background: #B7C2C9;
+    color: #fff;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+#view-bank .run-btn .spinner{
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+#view-bank .run-btn.loading .spinner{ display: block; }
+#view-bank .run-btn.loading .btn-text{ display: none; }
+@keyframes spin{ to { transform: rotate(360deg); } }
+#view-bank .log-box{
+    background: #16212B;
+    color: #8ec9a4;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    line-height: 1.85;
+    margin-bottom: 28px;
+    display: none;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid #2a3742;
+  }
+#view-bank .log-box.visible{ display: block; }
+#view-bank .log-line.warn{ color: #f0c070; }
+#view-bank .log-line.error{ color: #e88080; }
+#view-bank .log-line.ok{ color: #8ec9a4; }
+#view-bank .log-line.info{ color: #7ab8d8; }
+#view-bank .results{ display: none; }
+#view-bank .results.visible{ display: block; }
+#view-bank .results-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+#view-bank .results-title{
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+#view-bank .download-btn{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: #fff;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: background 0.18s;
+  }
+#view-bank .download-btn:hover{ background: var(--accent-light); }
+#view-bank .stats-row{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+@media (max-width: 600px){
+#view-bank .stats-row{ grid-template-columns: repeat(2,1fr); }
+}
+#view-bank .stat-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 16px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+#view-bank .stat-card::before{
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.18;
+  }
+#view-bank .stat-card.has-warn::before{ background: var(--err); opacity: 0.7; }
+#view-bank .stat-num{
+    font-family: var(--sans);
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    display: block;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+#view-bank .stat-num.warn{ color: var(--err); }
+#view-bank .stat-num.ok{ color: var(--pass); }
+#view-bank .stat-label{
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    display: block;
+    line-height: 1.4;
+  }
+#view-bank .validation-section{ margin-bottom: 20px; }
+#view-bank .validation-title{
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+#view-bank .validation-title::after{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-bank .validation-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+@media (max-width: 640px){
+#view-bank .validation-grid{ grid-template-columns: 1fr; }
+}
+#view-bank .vcard{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 14px 16px;
+    font-size: 11px;
+  }
+#view-bank .vcard-title{
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 500;
+  }
+#view-bank .vcard-dot{
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+#view-bank .vrow{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 8px;
+  }
+#view-bank .vrow-label{
+    color: var(--ink3);
+    font-size: 10px;
+    padding-top: 1px;
+  }
+#view-bank .vrow-val{
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    text-align: right;
+  }
+#view-bank .vmatch-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+#view-bank .vmatch-badge.ok{ background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-mid); }
+#view-bank .vmatch-badge.warn{ background: var(--warn-light);   color: var(--warn);   border: 1px solid var(--warn-mid); }
+#view-bank .tabs{
+    display: flex;
+    gap: 0;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 0;
+  }
+#view-bank .tab-btn{
+    padding: 11px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink3);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    transition: color 0.15s;
+    letter-spacing: 0;
+  }
+#view-bank .tab-btn.active{
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+#view-bank .table-wrap{
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: var(--surface);
+  }
+#view-bank table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+#view-bank thead th{
+    background: #FAFBFC;
+    color: var(--ink3);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+#view-bank thead th:first-child{ padding-left: 20px; }
+#view-bank tbody tr{ border-bottom: 1px solid var(--border-light); }
+#view-bank tbody tr:last-child{ border-bottom: none; }
+#view-bank tbody tr:hover{ background: #FBFCFD !important; }
+#view-bank tbody td{
+    padding: 11px 16px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+#view-bank tbody td:first-child{ padding-left: 20px; }
+#view-bank .td-num{ text-align: right; font-variant-numeric: tabular-nums; }
+#view-bank tr.matched{ background: var(--match-light); }
+#view-bank tr.unmatched-a{ background: var(--warn-light); }
+#view-bank tr.unmatched-b{ background: var(--warn-light); }
+#view-bank .note-text{
+    color: var(--warn);
+    font-size: 12px;
+  }
+#view-bank .blank-cell{ color: var(--ink3); }
+#view-bank tfoot td{
+    background: #FAFBFC;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+#view-bank tfoot td:first-child{ padding-left: 20px; }
+#view-bank .nomina-badge{
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--warn-light);
+    color: var(--warn);
+    border: 1px solid var(--warn-mid);
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+#view-bank .instructions{
+    margin-top: 48px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 32px;
+  }
+#view-bank .instructions h3{
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 20px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+#view-bank .step-list{
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+#view-bank .step-list li{
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.65;
+  }
+#view-bank .step-num{
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+/* ===== DIOT Creation tool (scoped under #view-diot) ===== */
+:where(#view-diot) *{ margin:0; padding:0 }
+#view-diot td{ vertical-align:middle }
+#view-diot .container{ position:relative; max-width:none; margin:0; padding:18px 0 64px }
+#view-diot .section-label{
+    font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--ink3); font-weight:700; margin-bottom:12px;
+    display:flex; align-items:center; gap:10px;
+  }
+#view-diot .section-label::after{ content:''; flex:1; height:1px; background:var(--border-light); }
+#view-diot .upload-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:24px; }
+@media (max-width:760px){ #view-diot .upload-grid{ grid-template-columns:1fr; } }
+#view-diot .upload-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    box-shadow:0 1px 2px rgba(22,33,43,.04); padding:22px 20px; text-align:left;
+    cursor:pointer; transition:border-color 0.18s, background 0.18s, transform 0.12s;
+    position:relative; display:block;
+  }
+#view-diot .upload-card:hover{ border-color:var(--accent); background:var(--accent-light); transform:translateY(-1px); }
+#view-diot .upload-card.dragover{ border-color:var(--accent); background:var(--accent-light); }
+#view-diot .upload-card.loaded{ border-color:var(--pass); background:#F4FAF6; }
+#view-diot .upload-card input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; z-index:1; }
+#view-diot .upload-role{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:0.04em;
+    text-transform:uppercase; color:var(--accent);
+  }
+#view-diot .upload-title{ font-size:16px; font-weight:700; color:var(--ink); margin:6px 0 4px; line-height:1.3; }
+#view-diot .upload-hint{ font-size:13px; color:var(--ink3); line-height:1.5; margin:0; }
+#view-diot .upload-filename{
+    font-family:var(--mono); font-size:12.5px; color:var(--pass); margin-top:12px;
+    word-break:break-all; display:none; font-weight:600;
+  }
+#view-diot .upload-card.loaded .upload-filename{ display:block; }
+#view-diot .card-clear{
+    display:none; position:absolute; top:12px; right:12px; z-index:5;
+    font-family:var(--sans); font-size:11.5px; font-weight:700; letter-spacing:0.02em;
+    color:var(--ink3); background:#fff; border:1px solid var(--border); border-radius:7px;
+    padding:4px 10px; cursor:pointer; transition:color 0.15s, border-color 0.15s, background 0.15s;
+  }
+#view-diot .card-clear:hover{ color:var(--err); border-color:var(--err-mid); background:var(--err-light); }
+#view-diot .upload-card.loaded .card-clear{ display:inline-block; }
+#view-diot .error-banner{
+    background:var(--err-light); border:1px solid var(--err-mid); border-left:3px solid var(--err);
+    border-radius:9px; padding:13px 16px; font-size:13.5px; color:#8A2C22; margin-bottom:16px; display:none;
+  }
+#view-diot .run-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+    padding:14px 24px; background:var(--accent); color:white; border:none; border-radius:9px;
+    font-family:var(--sans); font-size:15px; font-weight:700; cursor:pointer;
+    transition:background 0.18s, transform 0.05s; margin-bottom:28px;
+  }
+#view-diot .run-btn:hover:not(:disabled){ background:var(--accent2); }
+#view-diot .run-btn:active:not(:disabled){ transform:translateY(1px); }
+#view-diot .run-btn:disabled{ background:#B7C2C9; color:#fff; cursor:not-allowed; box-shadow:none; }
+#view-diot .run-btn .spinner{
+    width:14px; height:14px; border:2px solid rgba(255,255,255,0.3); border-top-color:white;
+    border-radius:50%; animation:spin 0.7s linear infinite; display:none;
+  }
+#view-diot .run-btn.loading .spinner{ display:block; }
+#view-diot .run-btn.loading .btn-text{ display:none; }
+#view-diot .run-note{ font-size:13px; color:var(--ink3); margin:-16px 0 28px; }
+#view-diot .log-box{
+    background:#16212B; color:#8ec9a4; font-family:var(--mono); font-size:11.5px;
+    padding:14px 16px; border-radius:10px; line-height:1.85; margin-bottom:28px; display:none;
+    max-height:160px; overflow-y:auto; border:1px solid #2a3742;
+  }
+#view-diot .log-box.visible{ display:block; }
+#view-diot .log-line.warn{ color:#f0c070; } #view-diot .log-line.error{ color:#e88080; }
+#view-diot .log-line.ok{ color:#8ec9a4; } #view-diot .log-line.info{ color:#7ab8d8; }
+#view-diot .results{ display:none; } #view-diot .results.visible{ display:block; }
+#view-diot .results-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; gap:12px; flex-wrap:wrap; }
+#view-diot .download-btn{
+    display:flex; align-items:center; gap:8px; padding:9px 16px; background:#fff; color:var(--accent);
+    border:1px solid var(--accent); border-radius:8px; font-family:var(--sans); font-size:13px;
+    font-weight:700; cursor:pointer; transition:background 0.18s;
+  }
+#view-diot .download-btn:hover{ background:var(--accent-light); }
+#view-diot .stats-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+@media (max-width:600px){ #view-diot .stats-row{ grid-template-columns:repeat(2,1fr); } }
+#view-diot .stat-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    box-shadow:0 1px 2px rgba(22,33,43,.04); padding:16px 14px; text-align:center; position:relative; overflow:hidden;
+  }
+#view-diot .stat-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--accent); opacity:0.18; }
+#view-diot .stat-card.has-warn::before{ background:var(--err); opacity:0.7; }
+#view-diot .stat-num{
+    font-family:var(--sans); font-size:30px; font-weight:800; letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums; color:var(--ink); display:block; line-height:1; margin-bottom:6px;
+  }
+#view-diot .stat-num.warn{ color:var(--err); } #view-diot .stat-num.ok{ color:var(--pass); }
+#view-diot .stat-label{ font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); display:block; line-height:1.4; }
+#view-diot .breakdown{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 22px; }
+#view-diot .chip{
+    font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:20px; border:1px solid var(--border);
+    background:#fff; color:var(--ink2); display:inline-flex; gap:7px; align-items:center;
+  }
+#view-diot .chip .dot{ width:8px; height:8px; border-radius:50%; }
+#view-diot .chip b{ font-variant-numeric:tabular-nums; }
+#view-diot .flag-panel{
+    display:none; background:var(--err-light); border:1px solid var(--err-mid); border-radius:12px;
+    padding:18px 20px; margin-bottom:22px;
+  }
+#view-diot .flag-panel.visible{ display:block; }
+#view-diot .flag-head{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px; }
+#view-diot .flag-mark{ color:var(--err); font-size:22px; line-height:1; }
+#view-diot .flag-head h3{ margin:0 0 4px; font-size:16px; font-weight:800; color:#8A2C22; }
+#view-diot .flag-head p{ margin:0; font-size:13px; color:var(--ink2); max-width:74ch; }
+#view-diot .flag-table{ width:100%; border-collapse:collapse; font-size:13px; }
+#view-diot .flag-table th{
+    text-align:left; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink3);
+    font-weight:700; padding:9px 12px; border-bottom:1px solid var(--err-mid);
+  }
+#view-diot .flag-table td{ padding:11px 12px; border-bottom:1px solid #F0DAD5; vertical-align:top; }
+#view-diot .flag-table tr:last-child td{ border-bottom:none; }
+#view-diot .tablecard{ background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 1px 2px rgba(22,33,43,.04); overflow:hidden; }
+#view-diot .tablehead{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px 14px; flex-wrap:wrap; gap:12px; }
+#view-diot .tablehead h2{ font-size:18px; margin:0; font-weight:800; letter-spacing:-0.02em; }
+#view-diot .table-wrap{ overflow-x:auto; border:none; border-top:1px solid var(--border); border-radius:0; background:var(--surface); max-height:560px; overflow-y:auto; }
+#view-diot table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+#view-diot thead th{
+    background:#FAFBFC; color:var(--ink3); padding:12px 16px; text-align:left; font-size:11px;
+    letter-spacing:0.06em; text-transform:uppercase; font-weight:700; white-space:nowrap;
+    border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1;
+  }
+#view-diot thead th:first-child{ padding-left:20px; }
+#view-diot tbody tr{ border-bottom:1px solid var(--border-light); }
+#view-diot tbody tr:last-child{ border-bottom:none; }
+#view-diot tbody tr:hover{ background:#FBFCFD; }
+#view-diot tbody td{ padding:11px 16px; white-space:nowrap; }
+#view-diot tbody td:first-child{ padding-left:20px; }
+#view-diot .td-num{ text-align:right; font-variant-numeric:tabular-nums; }
+#view-diot .td-rfc{ font-family:var(--mono); font-weight:600; color:var(--ink); }
+#view-diot .td-uuid{ font-family:var(--mono); font-size:11.5px; color:var(--ink2); }
+#view-diot tr.row-flag{ background:#FCF1EF; }
+#view-diot tr.row-flag:hover{ background:#FAE8E4; }
+#view-diot .est-badge{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:6px; white-space:nowrap; }
+#view-diot .est-vigente{ background:var(--accent-light); color:var(--accent2); border:1px solid var(--accent-mid); }
+#view-diot .est-cancel{ background:#F8D7D2; color:#8A1C12; border:1px solid #E7B0A8; text-transform:uppercase; letter-spacing:0.04em; }
+#view-diot .est-missing{ background:var(--warn-light); color:var(--warn); border:1px solid var(--warn-mid); }
+#view-diot tfoot td{
+    background:#FAFBFC; font-weight:700; padding:12px 16px; border-top:1px solid var(--border);
+    font-size:12.5px; font-variant-numeric:tabular-nums; position:sticky; bottom:0;
+  }
+#view-diot tfoot td:first-child{ padding-left:20px; }
+#view-diot .instructions{ margin-top:48px; border-top:1px solid var(--border-light); padding-top:32px; }
+#view-diot .instructions h3{ font-family:var(--sans); font-weight:800; font-size:15px; margin-bottom:20px; color:var(--ink); letter-spacing:-0.01em; }
+#view-diot .step-list{ list-style:none; display:flex; flex-direction:column; gap:12px; }
+#view-diot .step-list li{ display:flex; gap:14px; align-items:flex-start; font-size:12px; color:var(--ink2); line-height:1.65; }
+#view-diot .step-num{
+    flex-shrink:0; width:22px; height:22px; background:var(--accent); color:white; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:500; margin-top:2px;
+  }
+#view-diot .instructions code{ font-family:var(--mono); font-size:11.5px; background:#F0F3F5; padding:1px 5px; border-radius:4px; color:var(--ink); }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">GREE Mexico</p>
+    <h1>Reconciliation Suite</h1>
+    <p>Three month-end routines in one place &mdash; tie NCC expense entries to received CFDI invoices, tie the NCC bank journal to the bank statements, then cross-reference NCC documents against received CFDI by UUID to build the DIOT compliance report.</p>
+  </div>
+</header>
+
+<nav class="stepnav">
+  <div class="wrap">
+    <button class="stepnav-btn active" data-step="cfdi" onclick="showStep('cfdi')"><span class="num">1</span> NCC &times; CFDI Reconciliation</button>
+    <button class="stepnav-btn" data-step="bank" onclick="showStep('bank')"><span class="num">2</span> Bank Reconciliation</button>
+    <button class="stepnav-btn" data-step="diot" onclick="showStep('diot')"><span class="num">3</span> DIOT Creation</button>
+  </div>
+</nav>
+
+<main>
+  <section id="view-cfdi" class="view active">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="page-title">NCC &times; CFDI Reconciliation</p>
+      <p class="page-sub">Check expense entries exported from NCC (ERP) against the company's received CFDI invoices. The CFDI file is treated as the source of truth; every mismatch is reported against it.</p>
+      <div class="tieout">
+        <span class="ledgertag"><b>NCC</b> expense entries</span>
+        <span class="tie">&#8644;</span>
+        <span class="ledgertag"><b>CFDI</b> received invoices</span>
+        <span class="tie tie-soft">&middot; matched by UUID</span>
+      </div>
+    </div>
+    <p class="steplabel">Load both files</p>
+    <div class="uploads">
+      <label class="card drop" id="dropNcc">
+        <input type="file" accept=".xlsx,.xls,.xlsm" hidden id="fileNcc">
+        <button type="button" class="clearbtn" id="clearNcc" title="Remove this file">Clear</button>
+        <div class="role">NCC / ERP</div>
+        <h3>Expense entries</h3>
+        <p class="hint">The reimbursement / payment workbook exported from NCC — both AP (payable) and PY (payment) layouts are read by header name.</p>
+        <div class="fname" id="nameNcc"></div>
+        <div class="meta" id="metaNcc"></div>
+      </label>
+      <div class="tiecol"><span>&#8644;</span></div>
+      <label class="card drop" id="dropCfdi">
+        <input type="file" accept=".xlsx,.xls,.xlsm" hidden id="fileCfdi">
+        <button type="button" class="clearbtn" id="clearCfdi" title="Remove this file">Clear</button>
+        <div class="role">CFDI / SAT</div>
+        <h3>Received invoices</h3>
+        <p class="hint">The workbook of all CFDI invoices received this year (the source of truth).</p>
+        <div class="fname" id="nameCfdi"></div>
+        <div class="meta" id="metaCfdi"></div>
+      </label>
+    </div>
+
+    <p class="steplabel">Approved UUID / DocNo. whitelist <span class="opt">cloud-synced</span></p>
+    <div class="card wl-card" id="wlCard">
+      <button type="button" class="wl-toggle" id="wlToggle" aria-expanded="false">
+        <span class="wl-chev" id="wlChev">&#9656;</span>
+        <span class="wl-tt">Whitelist</span>
+        <span class="wl-count" id="wlCount"><b>0</b> approved</span>
+        <span id="wlSync" class="sync-status loading"><span class="spinner"></span> Connecting&hellip;</span>
+      </button>
+      <div class="wl-body" id="wlBodyWrap">
+        <p class="wl-intro">Each row holds a <b>UUID, a DocNo., or a foreign-invoice number.</b> Reviewed entries are exempt from <b>every</b> check &mdash; a standard SAT UUID exempts that invoice wherever it appears; a DocNo. exempts the whole expense record; and any other value (e.g. a <b>foreign invoice</b> such as <code>26427000000277781101</code> or <code>ZSPE26021337A</code> that has no CFDI) is matched against the NCC invoice-number column, so it exempts that line even though it can't be found in the CFDI file. The list lives in a shared cloud store, so the whole team sees the same one — it loads automatically; edit it and press <b>Save to Cloud</b> to share. Only rows whose <b>Reviewed</b> box is ticked take effect.</p>
+        <input type="text" class="wl-search" id="wlSearch" spellcheck="false" placeholder="Filter by UUID / DocNo. or reason&hellip;">
+        <div class="wl-tablewrap">
+          <table class="wl-table" id="wlTable">
+            <thead><tr><th>UUID / DocNo.</th><th>Reason for exemption</th><th class="c-rev">Reviewed</th><th class="c-del"></th></tr></thead>
+            <tbody id="wlBody"></tbody>
+          </table>
+        </div>
+        <div class="wl-actions">
+          <button type="button" class="wl-btn ghost" id="wlAdd">+ Add row</button>
+          <button type="button" class="wl-btn" id="wlSave">&#9729;&#65039; Save to Cloud</button>
+          <button type="button" class="wl-btn ghost" id="wlReload">&#8635; Reload</button>
+        </div>
+        <div class="wl-status" id="wlStatus"></div>
+        <details class="wl-adv">
+          <summary>Cloud endpoint &amp; setup</summary>
+          <label class="wl-lbl">Google Apps Script web-app URL (shared by the team)</label>
+          <input type="text" id="wlUrl" spellcheck="false" placeholder="https://script.google.com/macros/s/&hellip;/exec">
+          <p class="wl-note">The list is stored under the key <code>uuidWhitelist</code> at this endpoint. To run your own shared store: in Google Drive create an Apps Script project, paste a small <code>doGet</code>/<code>doPost</code> key-value handler (reads return <code>{data:{&hellip;}}</code>, writes accept <code>{key,value}</code>), Deploy as a Web app with access &ldquo;Anyone&rdquo;, and paste the <code>/exec</code> URL here. Everyone using the same URL shares one whitelist.</p>
+        </details>
+      </div>
+    </div>
+
+    <p class="steplabel">Reconcile</p>
+    <div class="runrow">
+      <button class="run" id="runBtn" disabled>Run reconciliation</button>
+      <span class="runnote" id="runNote">Load both files to continue.</span>
+    </div>
+    <div class="alert err" id="alertBox"></div>
+
+    <section class="results" id="resultsSection">
+      <p class="steplabel">Results</p>
+      <div class="scards">
+        <div class="card scard flag" id="sErrCard"><div class="n" id="sErrors">0</div><div class="l">Issues found</div></div>
+        <div class="card scard"><div class="n" id="sLines">0</div><div class="l">Detail lines checked</div></div>
+        <div class="card scard"><div class="n" id="sRecords">0</div><div class="l">Expense records</div></div>
+        <div class="card scard"><div class="n" id="sInvoices">0</div><div class="l">CFDI invoices loaded</div></div>
+      </div>
+      <div class="breakdown" id="breakdown"></div>
+
+      <div class="card dup-panel" id="dupPanel">
+        <div class="dup-head">
+          <span class="dup-mark">&#9888;</span>
+          <div>
+            <h3>Possible duplicate reimbursements</h3>
+            <p>The same invoice UUID is recorded on more than one expense record and does not look like a planned split &mdash; review for double reimbursement. Repeated UUIDs inside a single record (e.g. a withholding line) are normal and are not shown.</p>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="dup-table">
+            <thead><tr><th>UUID</th><th>Recorded on these records</th><th>Why flagged</th></tr></thead>
+            <tbody id="dupBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card amort-panel" id="amortPanel">
+        <div class="amort-head">
+          <span class="amort-mark">&#8635;</span>
+          <div>
+            <h3>Amortized invoices &mdash; expected</h3>
+            <p>One invoice covers several periods (e.g. annual bank insurance billed once, recognized monthly). Each record holds an equal share of the invoice, so the total, VAT and month checks are intentionally relaxed for these. The payment method shown is the CFDI's <b>Método Pago</b>. Listed for visibility, not as errors.</p>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="amort-table">
+            <thead><tr><th>UUID</th><th>Invoice (CFDI)</th><th>Per-period share</th><th>Records &amp; method (CFDI)</th></tr></thead>
+            <tbody id="amortBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card tablecard" id="tableCard">
+        <div style="padding:18px 18px 0">
+          <div class="tablehead">
+            <h2>Issue list</h2>
+            <button class="export" id="exportBtn">Export to Excel</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="resultTable">
+            <thead><tr>
+              <th>DocNo.</th><th>Reimbursement No.</th><th>Material</th><th>Check</th>
+              <th>What's wrong</th><th>CFDI (correct)</th><th>NCC (recorded)</th><th>UUID</th><th>Status</th>
+            </tr></thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+        <div class="clean-state" id="cleanState">
+          <div class="mark">&#10003;</div>
+          <h2>Everything ties out</h2>
+          <p>All detail lines match the CFDI invoices on the checks below.</p>
+        </div>
+      </div>
+    </section>
+
+    <details class="reference-acc">
+      <summary>
+        <div class="ref-bar">
+          <span class="ref-title">&#128269; What gets checked (Validation Rules)</span>
+          <span class="ref-chev">&#9660;</span>
+        </div>
+      </summary>
+      <div class="ref-body">
+      <div class="checks">
+        <div class="card check"><div class="num">Check 1</div><h4>Duplicate UUIDs</h4>
+          <p>Runs first. When a real UUID appears on more than one record, it tells two cases apart automatically: equal partial shares that sum within the invoice total (or a <code>Bank Charges</code> item, <code>PPD</code> payment) are treated as an <b>amortized invoice</b> &mdash; expected, with total/VAT/month relaxed. Full-amount repeats are flagged as <b>possible duplicate reimbursement</b>. Placeholder UUIDs (<code>-</code>, <code>NA</code>, free text for no-invoice items) and repeats within one record are never counted as duplicates.</p></div>
+        <div class="card check"><div class="num">Check 2</div><h4>Valid UUID</h4>
+          <p>A UUID is valid only when it satisfies <b>both</b> conditions: (1) it <b>exists</b> in the CFDI file, and (2) the matched invoice's <code>Estatus</code> is exactly <code>Vigente</code>. A stray <code>:</code> prefix, spaces, or unusual dashes are tolerated; anything still unmatched is flagged as <b>not found</b>. If the UUID is found but its status is not <code>Vigente</code> (e.g. <code>Cancelado</code>), the line is flagged &mdash; the <b>CFDI</b> column shows the actual status and the <b>NCC</b> column shows the UUID &mdash; and all downstream checks (withholding / total / VAT / FX / cash) are skipped because the invoice is already invalid. A line whose <code>Material = Non-Deductible Expense</code> is exempt from the <b>not-found</b> case only &mdash; these legitimately have no CFDI; a non-<code>Vigente</code> status is flagged regardless of material. If the CFDI file carries no status at all, the Vigente sub-check is silently skipped.</p></div>
+        <div class="card check"><div class="num">Check 3</div><h4>Posting month</h4>
+          <p>NCC <code>DocDate</code> month must equal CFDI <code>Emisión</code> month. Run only when the record is <code>DocNo</code> starting with <code>AP</code> <i>and</i> <code>A/PType = CA Reimbursement</code>, or when the supplier contains <code>PETTY CASH</code>.</p></div>
+        <div class="card check"><div class="num">Check 4</div><h4>Total amount</h4>
+          <p>NCC <code>AmtIncl.VAT(OC)</code> must equal CFDI <code>Total Original XML</code> to the cent (no tolerance). A split-by-expense-type invoice is summed within the record first. If booked <i>below</i> the invoice it reads <b>"Please verify the bank payment amount"</b>; if <i>above</i>, "does not match".</p></div>
+        <div class="card check"><div class="num">Check 5</div><h4>VAT amount</h4>
+          <p>NCC <code>VATAmt(FC)</code> must equal CFDI <code>IVA</code> to the cent (summed per invoice within a record). Exception: for <code>Travel – Meals</code>, VAT equal to <b>8.5%</b> of the CFDI IVA (±0.01) is accepted — SAT allows only 8.5% deductible for meals within 50 km. If that 8.5% pattern matches but <code>Material ≠ Travel – Meals</code>, the Total/VAT mismatch is still flagged, with the reason <code>Meal ≤ 50 KM but incorrect material</code> (the Material column keeps the NCC value). Also skipped for <code>PY</code> non-MXN lines (settled at the payment-date FX rate).</p></div>
+        <div class="card check"><div class="num">Check 6</div><h4>Exchange rate</h4>
+          <p>Only when NCC <code>Currency</code> is not <code>MXN</code>: NCC <code>Ex.Rate</code> must equal CFDI <code>Tipo Cambio</code>. Skipped for <code>PY</code> payment documents, whose foreign-currency lines use the payment-date rate rather than the invoice rate.</p></div>
+        <div class="card check"><div class="num">Check 7</div><h4>Withholding tax</h4>
+          <p>For lines where <code>VATCode = PresetWHTL0 Donot used</code>, the absolute value of <code>AmtIncl.VAT(OC)</code> must equal CFDI <code>IVA Retenido + ISR Retenido</code>.</p></div>
+        <div class="card check"><div class="num">Check 8</div><h4>Cash payment</h4>
+          <p>Only when CFDI <code>Forma Pago = 01</code> (Efectivo / cash). Two SAT cases must be booked as <code>Non-Deductible Expense</code>: (a) <b>gasoline</b> &mdash; CFDI <code>Conceptos Descripción</code> contains <code>GASOLINA</code> &mdash; reads <b>"Please Select 'Non-Deductible Expense' for cash-paid gasoline"</b>; (b) any cash payment with <code>Total Original XML &gt; $2,000</code> &mdash; reads <b>"Please Select 'Non-Deductible Expense' for payments &gt; $2,000"</b>. If both apply, only the gasoline message shows. Lines already booked <code>Non-Deductible Expense</code> pass.</p></div>
+        <div class="card check"><div class="num">Note</div><h4>Exemptions</h4>
+          <p>Skipped entirely: records whose supplier is <code>GREE AIRCONDITIONING MEXICO</code> or <code>CDMX GOV</code> (salary / tax), and <code>PY</code> documents whose <code>PmtType</code> is <code>Cash Advance Payment</code> or <code>Cash Avance Return</code> (not invoice related). The issuer-RFC check is also not run.</p></div>
+      </div>
+      <div class="datebox">
+        <b>About CFDI dates.</b> The <code>Emisión</code> column is read with <b>file-level format sniffing</b>: the format is detected once from the first dated row and reused for the whole file. Native Excel dates and serial numbers are read directly; text dates are split on <code>/</code> or <code>-</code> and locked as <b>year-first</b> (<code>YYYY-MM-DD</code>) when the first part is 4 digits, or <b>day-first</b> (<code>DD-MM-YYYY</code>) when the last part is 4 digits. Only the year and month are used for the posting-month check.
+      </div>
+      </div>
+    </details>
+  </div>
+  </section>
+
+  <section id="view-bank" class="view">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="page-title">Bank Reconciliation</p>
+      <p class="page-sub">Upload the NCC Bank Journal and one Bank Statement &mdash; ICBC, Santander, or BBVA &mdash; then compare inflows and outflows against control totals, flag discrepancies, and export the reconciliation file.</p>
+      <div class="tieout">
+        <span class="ledgertag"><b>NCC</b> bank journal</span>
+        <span class="tie">&#8644;</span>
+        <span class="ledgertag"><b>Bank</b> statement</span>
+        <span class="tie tie-soft">&middot; matched by amount</span>
+      </div>
+    </div>
+<div class="container">
+
+  <div style="display:flex;align-items:center;margin-bottom:12px">
+    <div class="section-label" style="flex:1;margin-bottom:0">Upload files</div>
+    <button class="clear-btn" id="clear-btn" onclick="clearAll()">
+      <span class="clear-btn-dot">×</span>
+      Clear all
+    </button>
+  </div>
+
+  <div class="upload-grid">
+    <div class="upload-card" id="card-ncc" ondragover="drag(event,'ncc')" ondragleave="undrag('ncc')" ondrop="drop(event,'ncc')">
+      <input type="file" id="file-ncc" accept=".xlsx,.xls" onchange="fileChosen('ncc',this)">
+      <div class="upload-role">NCC / ERP</div>
+      <div class="upload-title">NCC Bank Journal</div>
+      <div class="upload-hint">.xlsx · accounting system export · OC/FC columns auto-detected</div>
+      <div class="upload-filename" id="name-ncc"></div>
+    </div>
+
+    <div class="upload-card" id="card-bank-icbc" ondragover="drag(event,'bank-icbc')" ondragleave="undrag('bank-icbc')" ondrop="drop(event,'bank-icbc')">
+      <input type="file" id="file-bank-icbc" accept=".csv" onchange="fileChosen('bank-icbc',this)">
+      <div class="upload-role">ICBC / BANK</div>
+      <div class="upload-title">Bank Statement — ICBC</div>
+      <div class="upload-hint">.csv · UTF-16 tab-separated · 收入 / 支出金额 columns</div>
+      <div class="upload-filename" id="name-bank-icbc"></div>
+    </div>
+  </div>
+
+  <div class="optional-row">
+    <span class="optional-label">Santander / BBVA — optional</span>
+    <span class="optional-line"></span>
+  </div>
+
+  <div class="upload-grid" style="margin-bottom:24px">
+    <div class="upload-card" id="card-bank-san" ondragover="drag(event,'bank-san')" ondragleave="undrag('bank-san')" ondrop="drop(event,'bank-san')">
+      <input type="file" id="file-bank-san" accept=".csv" onchange="fileChosen('bank-san',this)">
+      <div class="upload-role">Santander / BANK</div>
+      <div class="upload-title">Bank Statement — Santander</div>
+      <div class="upload-hint">.csv · UTF-8 comma-separated · Descripcion / Cargo/Abono columns</div>
+      <div class="upload-filename" id="name-bank-san"></div>
+    </div>
+    <div class="upload-card" id="card-bank-bbva" ondragover="drag(event,'bank-bbva')" ondragleave="undrag('bank-bbva')" ondrop="drop(event,'bank-bbva')">
+      <input type="file" id="file-bank-bbva" accept=".xlsx,.xls" onchange="fileChosen('bank-bbva',this)">
+      <div class="upload-role">BBVA / BANK</div>
+      <div class="upload-title">Bank Statement — BBVA</div>
+      <div class="upload-hint">.xlsx · Date / Concepto · Outflow / Inflow / Saldo columns</div>
+      <div class="upload-filename" id="name-bank-bbva"></div>
+    </div>
+  </div>
+
+
+  <div class="options-row">
+    <label class="option-toggle" id="nomina-label">
+      <input type="checkbox" id="nomina-check" checked onchange="onNominaChange()">
+      <span class="toggle-track">
+        <span class="toggle-thumb"></span>
+      </span>
+      <span class="option-text">
+        <span class="option-title">Nómina Include</span>
+        <span class="option-desc">Include Bank Outflow entries with "Nomina" or "Payroll" in summary</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="error-banner" id="err-banner"></div>
+
+  <button class="run-btn" id="run-btn" onclick="run()" disabled>
+    <div class="spinner"></div>
+    <span class="btn-text">Run Reconciliation</span>
+  </button>
+
+  <div class="log-box" id="log-box"></div>
+
+  <div class="results" id="results">
+    <div class="section-label" style="margin-bottom:20px">Results</div>
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="validation-section" id="validation-section"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('inflow',this)">Inflow</button>
+      <button class="tab-btn" onclick="switchTab('outflow',this)">Outflow</button>
+      <button class="export" id="dl-btn" onclick="downloadXlsx()" style="margin-left:auto;align-self:center;margin-bottom:6px">Export to Excel</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="preview-table">
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+        <tfoot id="tbl-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h3>How to use</h3>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><span>Export the monthly NCC Bank Journal (.xlsx) from your accounting system. Export the ICBC Bank Statement (.csv, UTF-16) and optionally the Santander Bank Statement (.csv, UTF-8) from each bank portal.</span></li>
+      <li><div class="step-num">2</div><span>Upload both the NCC Bank Journal and a Bank Statement — both are required. For the Bank Statement, upload either the ICBC file <strong>or</strong> the Santander file, not both at the same time. Uploading a second bank file will automatically clear the first.</span></li>
+      <li><div class="step-num">3</div><span>Click <strong>Run Reconciliation</strong>. The tool auto-detects formats, skips subtotal rows, sorts by amount, and compares line by line.</span></li>
+      <li><div class="step-num">4</div><span>Preview the discrepancies on screen, then click <strong>Export to Excel</strong> to save the reconciliation report with two worksheets.</span></li>
+      <li><div class="step-num">5</div><span>Yellow highlight = entry missing on one side. Green = matched. The Note column explains each discrepancy.</span></li>
+    </ul>
+  </div>
+
+</div>
+  </div>
+  </section>
+
+  <section id="view-diot" class="view">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="page-title">DIOT Creation</p>
+      <p class="page-sub">Cross-reference the NCC accounting documents against the received CFDI file by invoice UUID, validate each invoice is <code>Vigente</code> at the SAT, map the issuer RFC, and assemble the DIOT compliance report. The CFDI file is the source of truth for status and RFC.</p>
+      <div class="tieout">
+        <span class="ledgertag"><b>NCC</b> AP + PY documents</span>
+        <span class="tie">&#8644;</span>
+        <span class="ledgertag"><b>CFDI</b> received invoices</span>
+        <span class="tie tie-soft">&middot; matched by UUID</span>
+      </div>
+    </div>
+  <div class="container">
+
+    <div class="section-label">Upload files</div>
+
+    <div class="upload-grid">
+      <div class="upload-card" id="diot-card-ap" ondragover="diotDrag(event,'ap')" ondragleave="diotUndrag('ap')" ondrop="diotDrop(event,'ap')">
+        <input type="file" id="diot-file-ap" accept=".xlsx" onchange="diotFileChosen('ap',this)">
+        <button type="button" class="card-clear" id="diot-clear-ap" onclick="diotClearCard('ap',event)">Clear</button>
+        <div class="upload-role">NCC AP</div>
+        <div class="upload-title">CA Reimbursement</div>
+        <div class="upload-hint">.xlsx · NCC payable export · UUID / VATAmt(FC) detail</div>
+        <div class="upload-filename" id="diot-name-ap"></div>
+      </div>
+
+      <div class="upload-card" id="diot-card-py" ondragover="diotDrag(event,'py')" ondragleave="diotUndrag('py')" ondrop="diotDrop(event,'py')">
+        <input type="file" id="diot-file-py" accept=".xlsx" onchange="diotFileChosen('py',this)">
+        <button type="button" class="card-clear" id="diot-clear-py" onclick="diotClearCard('py',event)">Clear</button>
+        <div class="upload-role">NCC PY</div>
+        <div class="upload-title">Pmt Doc For SCM</div>
+        <div class="upload-hint">.xlsx · NCC payment export · UUID / VATAmt(FC) detail</div>
+        <div class="upload-filename" id="diot-name-py"></div>
+      </div>
+
+      <div class="upload-card" id="diot-card-cfdi" ondragover="diotDrag(event,'cfdi')" ondragleave="diotUndrag('cfdi')" ondrop="diotDrop(event,'cfdi')">
+        <input type="file" id="diot-file-cfdi" accept=".xlsx" onchange="diotFileChosen('cfdi',this)">
+        <button type="button" class="card-clear" id="diot-clear-cfdi" onclick="diotClearCard('cfdi',event)">Clear</button>
+        <div class="upload-role">CFDI / SAT</div>
+        <div class="upload-title">Received CFDI</div>
+        <div class="upload-hint">.xlsx · source of truth · Estatus / Emisor RFC / UUID</div>
+        <div class="upload-filename" id="diot-name-cfdi"></div>
+      </div>
+    </div>
+
+    <div class="error-banner" id="diot-err-banner"></div>
+
+    <button class="run-btn" id="diot-run-btn" onclick="diotRun()" disabled>
+      <div class="spinner"></div>
+      <span class="btn-text">Generate DIOT Report</span>
+    </button>
+    <p class="run-note" id="diot-run-note">Load all three files to continue.</p>
+
+    <div class="log-box" id="diot-log-box"></div>
+
+    <div class="results" id="diot-results">
+      <div class="results-header">
+        <div class="section-label" style="margin-bottom:0">Results</div>
+      </div>
+
+      <div class="stats-row" id="diot-stats-row"></div>
+      <div class="breakdown" id="diot-breakdown"></div>
+
+      <div class="flag-panel" id="diot-flag-panel">
+        <div class="flag-head">
+          <span class="flag-mark">&#9888;</span>
+          <div>
+            <h3>Invoices needing review</h3>
+            <p>These UUIDs were recorded in the NCC documents but are <b>not <code>Vigente</code></b> in the CFDI file &mdash; either cancelled at the SAT or not present at all. They are kept in the report (with their resolved status) but should be checked before the DIOT is filed.</p>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="flag-table">
+            <thead><tr><th>UUID</th><th>Emisor RFC</th><th class="td-num">VAT</th><th>Estatus</th></tr></thead>
+            <tbody id="diot-flag-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tablecard">
+        <div class="tablehead">
+          <h2>DIOT report</h2>
+          <button class="export" id="diot-dl-btn" onclick="diotDownloadXlsx()">Export to Excel</button>
+        </div>
+        <div class="table-wrap">
+          <table id="diot-table">
+            <thead><tr><th class="td-num">VAT</th><th>Emisor RFC</th><th>UUID</th><th>Estatus</th></tr></thead>
+            <tbody id="diot-body"></tbody>
+            <tfoot id="diot-foot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h3>How it works</h3>
+      <ul class="step-list">
+        <li><div class="step-num">1</div><span>Upload all three workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong>, <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, and the <strong>Received CFDI</strong> file. Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
+        <li><div class="step-num">2</div><span>The tool reads the itemized <code>bodys</code> detail table from each NCC file and keeps only rows whose <code>UUID</code> is a well-formed 36-character invoice folio (8-4-4-4-12). Blank values and placeholders such as <code>-</code>, <code>tip</code>, or <code>NA</code> are skipped; spacing and look-alike dashes are normalized first so genuinely valid folios are recovered.</span></li>
+        <li><div class="step-num">3</div><span>VAT (<code>VATAmt(FC)</code>) is summed per UUID across both NCC files, then each UUID is left-joined to the CFDI file to pull its <code>Emisor RFC</code> and <code>Estatus</code>. A UUID is fully valid only when it exists in the CFDI file <strong>and</strong> its status is exactly <code>Vigente</code>.</span></li>
+        <li><div class="step-num">4</div><span>Review the on-screen report &mdash; flagged (non-<code>Vigente</code>) rows are tinted &mdash; then click <strong>Export to Excel</strong> to export the four-column DIOT report: <code>VAT</code>, <code>Emisor RFC</code>, <code>UUID</code>, <code>Estatus</code>.</span></li>
+      </ul>
+    </div>
+
+  </div>
+  </div>
+  </section>
+</main>
+
+<footer>Runs entirely in your browser &middot; no file ever leaves your computer.</footer>
+
+<script>
+const WHT_CODE = 'PresetWHTL0 Donot used';
+let nccRows = null, cfdiRows = null;
+let lastErrors = [], lastSummary = null, lastDuplicates = [], lastAmortized = [];
+let whitelist = [];   // [{uuid, reason, reviewed}]  — the value may be a UUID or a DocNo.
+function approvedSets(){
+  const uuids=new Set(), docnos=new Set();
+  for(const w of whitelist){
+    if(!w.reviewed) continue;
+    const raw=String(w.uuid||'').trim();
+    if(!raw) continue;
+    const nu=normUuid(raw);
+    if(isUuidFormat(nu)){
+      uuids.add(nu);                        // standard SAT UUID -> exempt that invoice wherever it appears
+    } else {
+      docnos.add(raw.toUpperCase());        // a DocNo. -> exempt the whole expense record
+      uuids.add(nu);                        // OR a foreign-invoice number sitting in the NCC UUID column
+                                            //   (no CFDI exists) -> exempt that matching line too
+    }
+  }
+  return {uuids, docnos};
+}
+
+/* ---------- helpers ---------- */
+function normUuid(v){
+  if(v===null||v===undefined) return '';
+  return String(v).replace(/\s+/g,'').replace(/^:+/,'')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g,'-')   // unify unicode dashes to '-'
+    .toUpperCase();
+}
+function parseNum(v){
+  if(v===null||v===undefined) return 0;
+  if(typeof v==='number') return v;
+  let s=String(v).trim().replace(/,/g,'');
+  if(s===''||s==='-') return 0;
+  const n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+function cents(v){ return Math.round((v||0)*100); }   // money compared as integer cents (avoids FP noise)
+function isUuidFormat(nu){ return /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/.test(nu); }
+function seqOf(v){ return String(v===null||v===undefined?'':v).trim(); }
+function isSeq(v){ return /^\d+$/.test(seqOf(v)); }
+function isBlank(v){ return v===null||v===undefined||String(v).trim()===''; }
+
+/* CFDI Emisión date — FILE-LEVEL format sniffing.
+   The Emisión column is 100% consistent within a single file, so we detect the
+   format ONCE from the first non-empty value, cache that state, and reuse it for
+   every row. No per-row guessing, no Date.parse fallback.
+     Priority 1  native Excel date / serial number  -> read year & month directly
+     Priority 2  string -> split on '/' or '-':
+                   Rule A  parts[0].length === 4  -> Year-Month-Day
+                   Rule B  parts[2].length === 4  -> Day-Month-Year
+   Returns an object { mode, detail, parse(v) -> [year, month] | null }. */
+function makeEmisionParser(rows, startIdx, cEmis){
+  // 1) find the first non-empty Emisión value to sniff from
+  let probe=null;
+  for(let i=startIdx;i<rows.length;i++){
+    const r=rows[i]; if(!r) continue;
+    const v=r[cEmis];
+    if(v!==null && v!==undefined && String(v).trim()!==''){ probe=v; break; }
+  }
+  // 2) lock the format state from that single value
+  let mode='none', detail='no dated rows found';
+  if(probe instanceof Date && !isNaN(probe)){ mode='native'; detail='native Excel date'; }
+  else if(typeof probe==='number' && isFinite(probe)){ mode='serial'; detail='Excel serial number'; }
+  else if(typeof probe==='string'){
+    const parts=probe.trim().split(/[\/\-]/);            // split on '/' or '-'
+    if(parts.length>=3 && parts[0].length===4){ mode='ymd'; detail='text YYYY-MM-DD (year first)'; }   // Rule A
+    else if(parts.length>=3 && parts[2].length===4){ mode='dmy'; detail='text DD-MM-YYYY (day first)'; } // Rule B
+  }
+  // Excel serial -> [y,m,d]; prefer the library's own decoder, fall back to epoch math
+  const serialToYMD=(n)=>{
+    try{ if(typeof XLSX!=='undefined' && XLSX.SSF && XLSX.SSF.parse_date_code){
+           const d=XLSX.SSF.parse_date_code(n); if(d && d.y) return [d.y, d.m, d.d]; } }catch(e){}
+    const dt=new Date(Math.round((n-25569)*86400000));    // 25569 = days from 1899-12-30 to 1970-01-01
+    return [dt.getUTCFullYear(), dt.getUTCMonth()+1, dt.getUTCDate()];
+  };
+  // 3) apply the cached format to every row, returning [year, month]
+  const parse=(v)=>{
+    if(v===null||v===undefined||String(v).trim()==='') return null;
+    switch(mode){
+      case 'native': if(v instanceof Date && !isNaN(v)) return [v.getFullYear(), v.getMonth()+1]; break;
+      case 'serial': if(typeof v==='number' && isFinite(v)){ const t=serialToYMD(v); return [t[0],t[1]]; }
+                     if(v instanceof Date && !isNaN(v)) return [v.getFullYear(), v.getMonth()+1]; break;
+      case 'ymd': { const p=String(v).trim().split(/[\/\-]/); if(p.length>=3) return [parseInt(p[0],10), parseInt(p[1],10)]; break; }
+      case 'dmy': { const p=String(v).trim().split(/[\/\-]/); if(p.length>=3) return [parseInt(p[2],10), parseInt(p[1],10)]; break; }
+    }
+    return null;
+  };
+  return {mode, detail, parse};
+}
+/* NCC date: reliable yyyy-mm-dd (no swap) */
+function nccYM(v){
+  if(v instanceof Date && !isNaN(v)) return [v.getFullYear(), v.getMonth()+1];
+  if(typeof v==='string'){
+    let m=v.trim().match(/^(\d{4})-(\d{1,2})/);
+    if(m) return [parseInt(m[1]), parseInt(m[2])];
+    m=v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m) return [parseInt(m[3]), parseInt(m[2])];
+  }
+  return null;
+}
+function ymStr(t){ return t ? t[0]+'-'+String(t[1]).padStart(2,'0') : '?'; }
+function money(n){ return (n===null)?'?':n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function headerNorm(s){ return String(s===null?'':s).replace(/\s+/g,' ').trim().toLowerCase(); }
+
+/* ---------- workbook reading ---------- */
+function sheetToRows(ws){
+  return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+}
+function readWorkbook(buf){
+  return XLSX.read(buf, {type:'array', cellDates:true});
+}
+/* strip leading quotes/space so '"payablebill_$head,...' still matches */
+function leadText(v){ return (typeof v==='string') ? v.replace(/^["'\s]+/,'') : ''; }
+/* find the NCC sheet -> rows */
+function pickNccRows(wb){
+  for(const name of wb.SheetNames){
+    const rows = sheetToRows(wb.Sheets[name]);
+    if(rows.some(r => { const c=leadText(r&&r[0]); return c.startsWith('payablebill_$head') || c.startsWith('paybill_$head'); }))
+      return rows;   // AP (payable) and PY (payment) exports
+  }
+  return null;
+}
+/* find the CFDI sheet -> {rows, headerIdx, cols} */
+function pickCfdiRows(wb){
+  for(const name of wb.SheetNames){
+    const rows = sheetToRows(wb.Sheets[name]);
+    for(let i=0;i<Math.min(rows.length,40);i++){
+      const r=rows[i]; if(!r) continue;
+      const hs=r.map(headerNorm);
+      if(hs.includes('uuid') && hs.includes('total')) return {rows, headerIdx:i};
+    }
+  }
+  return null;
+}
+
+/* ---------- core analysis ---------- */
+function analyze(){
+  // ---- NCC ---- (read by HEADER NAME, not column position — AP and PY layouts differ in order)
+  const rows = nccRows;
+  let mainHdr=-1, bodyHdr=-1;
+  for(let i=0;i<rows.length;i++){
+    const c=leadText(rows[i] && rows[i][0]);
+    if(c.startsWith('payablebill_$head') || c.startsWith('paybill_$head')) mainHdr=i;  // AP (payable) and PY (payment) layouts
+    else if(c.startsWith('bodys')) bodyHdr=i;
+  }
+  if(mainHdr<0 || bodyHdr<0) throw new Error('Could not locate the main table and detail table in the NCC file. Make sure you uploaded the NCC reimbursement export.');
+
+  const normHdr=s=>String(s==null?'':s).replace(/^\*\s*/,'').trim().toLowerCase();
+  const buildMap=(rowArr)=>{ const m={}; (rowArr||[]).forEach((v,i)=>{ const k=normHdr(v); if(k && !(k in m)) m[k]=i; }); return m; };
+  const mainMap=buildMap(rows[mainHdr]);
+  const bodyMap=buildMap(rows[bodyHdr]);
+  const pick=(map,names)=>{ for(const n of names){ const k=n.toLowerCase(); if(k in map) return map[k]; } return -1; };
+  // column index by header title (Line No. / seq is always the first column in the import template)
+  const mDoc=pick(mainMap,['docno.','docno']), mDate=pick(mainMap,['docdate']),
+        mReimb=pick(mainMap,['reimbursementno.','reimbursementno']),
+        mSup=pick(mainMap,['supplier','\u4f9b\u5e94\u5546']),          // 'Supplier' (AP) or '供应商' (PY)
+        mApType=pick(mainMap,['a/ptype','aptype']),                    // AP doc type
+        mPmtType=pick(mainMap,['pmttype']);                            // PY payment type
+  const bCur=pick(bodyMap,['currency']), bRate=pick(bodyMap,['ex.rate','exrate']),
+        bIncl=pick(bodyMap,['amtincl.vat(oc)','amtinclvat(oc)']), bVatCode=pick(bodyMap,['vatcode']),
+        bUuid=pick(bodyMap,['uuid']), bMat=pick(bodyMap,['material']),
+        bVat=pick(bodyMap,['vatamt(fc)']), bAwht=pick(bodyMap,['amtafterwht(oc)']);
+  const at=(r,idx)=> idx>=0 ? r[idx] : null;
+
+  // exemptions from ALL checks
+  const approved=approvedSets();                                         // reviewed whitelist (UUIDs + DocNos)
+  const EXEMPT_SUP=['gree airconditioning mexico','cdmx gov'];            // salary / tax related
+  const PY_EXEMPT_TYPE=['cash advance payment','cash avance return'];     // PY cash advances — not invoice related
+  const main={};
+  for(let i=mainHdr+1;i<bodyHdr;i++){
+    const r=rows[i]; if(!r||!isSeq(r[0])) continue;
+    const sup=String(at(r,mSup)||'').trim();
+    const docno=at(r,mDoc), docU=String(docno||'').trim().toUpperCase();
+    const pmt=String(at(r,mPmtType)||'').trim();
+    const supExempt=EXEMPT_SUP.some(e=>sup.toLowerCase().includes(e));
+    const pyExempt=docU.startsWith('PY') && PY_EXEMPT_TYPE.includes(pmt.toLowerCase());
+    const docnoExempt=approved.docnos.has(docU);                          // approved DocNo. on the whitelist
+    main[seqOf(r[0])]={docno, docdate:at(r,mDate), reimb:at(r,mReimb),
+      supplier:sup, aptype:String(at(r,mApType)||'').trim(), pmttype:pmt,
+      exempt: supExempt || pyExempt || docnoExempt};
+  }
+  const details=[];
+  for(let i=bodyHdr+1;i<rows.length;i++){
+    const r=rows[i]; if(!r||!isSeq(r[0])) continue;
+    details.push({excelRow:i+1, seq:seqOf(r[0]), currency:at(r,bCur), exRate:at(r,bRate),
+                  amtIncl:at(r,bIncl), vatcode:at(r,bVatCode), uuidRaw:at(r,bUuid),
+                  material:at(r,bMat), vatamt:at(r,bVat), amtAwht:at(r,bAwht)});
+  }
+  if(details.length===0) throw new Error('No detail lines were found in the NCC file.');
+
+  // ---- CFDI ----
+  const cfdiData = cfdiRows; // {rows, headerIdx}
+  const hrow = cfdiData.rows[cfdiData.headerIdx].map(headerNorm);
+  const col = (names)=>{ for(const n of names){ const idx=hrow.indexOf(n); if(idx>=0) return idx; } 
+                         for(let i=0;i<hrow.length;i++){ if(names.some(n=>hrow[i].startsWith(n))) return i; } return -1; };
+  const cUuid=col(['uuid']), cEmis=col(['emisión','emision']), cIva=col(['iva']),
+        cIvaR=col(['iva retenido']), cIsrR=col(['isr retenido']), cTotal=col(['total']),
+        cTotalXml=col(['total original xml','total original','total xml']),
+        cTipo=col(['tipo cambio','tipo de cambio']),
+        cMetodo=col(['método pago','metodo pago','método de pago','metodo de pago']),
+        cForma=col(['forma pago','forma de pago','formapago']),
+        cDesc=col(['conceptos descripción','conceptos descripcion','concepto descripción','concepto descripcion','descripción','descripcion','conceptos','concepto']);
+  let cEstatus=col(['estatus','status']);
+  if(cEstatus<0) cEstatus=2;   // CFDI column C ("Estatus") fallback when the header isn't matched by name
+  if([cUuid,cEmis,cIva,cTotal].some(x=>x<0))
+    throw new Error('The CFDI file is missing one of the expected columns (UUID, Emisión, IVA, Total).');
+
+  // File-level date sniffing: detect the Emisión format ONCE, reuse for every row.
+  const emisionParser = makeEmisionParser(cfdiData.rows, cfdiData.headerIdx+1, cEmis);
+
+  const cfdi={};
+  let invCount=0;
+  for(let i=cfdiData.headerIdx+1;i<cfdiData.rows.length;i++){
+    const r=cfdiData.rows[i]; if(!r) continue;
+    const u=r[cUuid]; if(isBlank(u)) continue;
+    cfdi[normUuid(u)]={
+      rawUuid: String(u),                                                     // CFDI column L value (canonical)
+      emis:r[cEmis], emisYM: emisionParser.parse(r[cEmis]),                   // raw value + cached-format [year,month]
+      iva:parseNum(r[cIva]),
+      ivaR: cIvaR>=0?parseNum(r[cIvaR]):0, isrR: cIsrR>=0?parseNum(r[cIsrR]):0,
+      total:parseNum(r[cTotal]),
+      totalXml: cTotalXml>=0 ? parseNum(r[cTotalXml]) : parseNum(r[cTotal]),  // Check 4 basis (original-currency)
+      tipo: cTipo>=0 ? parseNum(r[cTipo]) : null,                              // exchange rate
+      metodo: cMetodo>=0 ? String(r[cMetodo]||'').trim().toUpperCase() : '',
+      formaPago: cForma>=0 ? String(r[cForma]==null?'':r[cForma]).trim() : '',     // Forma Pago code (01 = Efectivo / cash)
+      descripcion: cDesc>=0 ? String(r[cDesc]==null?'':r[cDesc]).trim() : '',       // Conceptos Descripción
+      estatus: cEstatus>=0 ? String(r[cEstatus]==null?'':r[cEstatus]).trim() : ''   // CFDI column C (Estatus)
+    };
+    invCount++;
+  }
+  // Does the CFDI file actually carry a status? If no invoice has any Estatus value, the
+  // Vigente sub-check is silently skipped (missing optional data -> skip, never hard-fail).
+  const cfdiHasStatus = Object.values(cfdi).some(c=>String(c.estatus||'').trim()!=='');
+
+  // ---- group shared UUIDs across DISTINCT records, then classify amortized vs duplicate ----
+  const AMORTIZABLE_MATERIAL = 'bank charges';   // matched loosely (English part of "Bank Charges 银行手续费")
+  const byU={};
+  for(const d of details){
+    const nu=normUuid(d.uuidRaw);
+    if(nu==='') continue;
+    if(approved.uuids.has(nu)) continue;    // approved whitelist UUID: exempt from all checks
+    if(!isUuidFormat(nu)) continue;   // '-', 'NA', 'Taxi'… are placeholders for no-invoice items, never a real duplicate
+    if((main[d.seq]||{}).exempt) continue;          // GREE / CDMX GOV records are exempt from all checks
+    const isW=String(d.vatcode||'').trim()===WHT_CODE;
+    if(!byU[nu]) byU[nu]={};
+    if(!byU[nu][d.seq]){
+      const m=main[d.seq]||{};
+      byU[nu][d.seq]={seq:d.seq, docno:m.docno, reimb:m.reimb, docdate:m.docdate,
+        portion:0, vatPortion:0, material:''};
+    }
+    const rec=byU[nu][d.seq];                      // sum across all lines (incl. the negative WHT line) within the record
+    rec.portion += parseNum(d.amtIncl)||0;         // total basis = AmtIncl.VAT(OC), net of withholding once summed
+    rec.vatPortion += parseNum(d.vatamt)||0;
+    if(!isW && !rec.material && d.material) rec.material=String(d.material).trim();
+  }
+  const duplicates=[], amortized=[], amortizedSeqs=new Set();
+  const near=(a,b,relTol)=>{ if(a===null||b===null) return false; const base=Math.max(Math.abs(b),1e-6); return Math.abs(a-b)/base<=relTol; };
+
+  for(const nu in byU){
+    const recs=Object.values(byU[nu]).sort((a,b)=>parseInt(a.seq)-parseInt(b.seq));
+    if(recs.length<2) continue;                       // only cross-record cases
+    const c = cfdi[nu] || null;
+    const portions = recs.map(r=>r.portion);
+    const total = c ? c.totalXml : null, iva = c ? c.iva : null;   // AmtAfterWHT(OC) reconciles to original-currency total
+
+    // signals — payment method comes from the CFDI (benchmark), looked up by UUID
+    const cMetodo = c ? (c.metodo||'') : '';
+    const materialAmortizable = recs.every(r=>String(r.material).toLowerCase().includes(AMORTIZABLE_MATERIAL));
+    const isPPD = cMetodo==='PPD';
+
+    let isAmortized=false, periods=null, note='';
+    if(c){
+      const sumPortions = portions.reduce((a,b)=>a+(b||0),0);
+      const meanP = sumPortions/recs.length;
+      const portionsEqual = portions.every(p=>near(p, meanP, 0.01));        // monthly amounts ~equal
+      const partial = portions.every(p=>p!==null && p < total*0.95);         // each clearly < full invoice
+      const sumWithinTotal = sumPortions <= total*1.005;                     // not over-amortized
+      // ratio test: Total/portion and IVA/vatPortion resolve to the same integer k (2..36)
+      const kT = meanP>0 ? Math.round(total/meanP) : 0;
+      const meanV = recs.reduce((a,r)=>a+(r.vatPortion||0),0)/recs.length;
+      const kV = meanV>0 ? Math.round(iva/meanV) : 0;
+      const ratioOK = kT>=2 && kT<=36 && near(meanP, total/kT, 0.005) &&
+                      ( iva>0 ? (kV===kT && near(meanV, iva/kV, 0.005)) : true );
+
+      if(partial && portionsEqual && sumWithinTotal && (ratioOK || materialAmortizable)){
+        isAmortized=true;
+        periods = ratioOK ? kT : null;
+        note = ratioOK
+          ? `One invoice split into equal periods (\u2248 ${periods} \u00d7 ${money(meanP)}).`
+          : `Recurring bank charge recognized per period against a single invoice.`;
+      } else if(!partial && portionsEqual){
+        note = 'Each record carries the full invoice amount \u2014 likely a true duplicate reimbursement.';
+      } else if(!sumWithinTotal){
+        note = 'Recorded portions add up to more than the invoice total.';
+      }
+    } else {
+      note = 'Shared UUID is not found in the CFDI file.';
+    }
+
+    const entry={uuid:nu, records:recs.map(r=>({seq:r.seq, docno:r.docno, reimb:r.reimb,
+                  portion:r.portion, metodo:cMetodo||'\u2014',
+                  material:String(r.material).trim()})),
+                 periods, total, iva, note, metodo:cMetodo||'\u2014',
+                 signals:{material:materialAmortizable, ppd:isPPD}};
+    if(isAmortized){ amortized.push(entry); recs.forEach(r=>amortizedSeqs.add(r.seq)); }
+    else duplicates.push(entry);
+  }
+
+  // ---- checks ----
+  const NON_DEDUCTIBLE = 'non-deductible expense';
+  const isMeals=m=>{ const s=String(m||'').toLowerCase(); return s.includes('meals') || s.includes('\u9910\u996e'); };
+  const errors=[];
+  const push=(o)=>errors.push(o);
+  const fxNear=(a,b)=>{ if(a===null||b===null) return false; const base=Math.max(Math.abs(b),1e-6); return Math.abs(a-b)/base<=0.001; };
+
+  // Pass A (per line): invalid UUID + withholding. Collect valid non-WHT lines into (seq|UUID) groups.
+  const groups={};   // key -> {seq,docno,reimb,nu, lines:[]}
+  for(const d of details){
+    const m=main[d.seq]||{};
+    if(m.exempt) continue;                          // GREE / CDMX GOV: exempt from all checks
+    const nu=normUuid(d.uuidRaw);
+    if(approved.uuids.has(nu)) continue;                  // approved whitelist UUID: exempt from all checks
+    const isWht=String(d.vatcode||'').trim()===WHT_CODE;
+    const mat=d.material!=null?String(d.material).trim():'';
+    if(!(nu in cfdi)){
+      // Material = Non-Deductible Expense + invalid UUID is an accepted case (no CFDI expected)
+      if(mat.toLowerCase()!==NON_DEDUCTIBLE)
+        push({seq:d.seq,row:d.excelRow,docno:m.docno||'',reimb:m.reimb,material:mat,
+              check:'uuid',reason:'UUID not found in the CFDI file',cfdi:'Not found',
+              ncc:(d.uuidRaw===null?'(blank)':String(d.uuidRaw)), uuid:(d.uuidRaw===null?'(blank)':String(d.uuidRaw)), status:''});
+      continue;
+    }
+    // Check 2 also requires the matched invoice to be Vigente. A found-but-non-Vigente
+    // invoice (e.g. Cancelado) is invalid regardless of Material — flag it and skip every
+    // downstream check (withholding / total / VAT / FX / cash) for this line.
+    const cV=cfdi[nu];
+    if(cfdiHasStatus && !/^vigente$/i.test(String(cV.estatus||'').trim())){
+      push({seq:d.seq,row:d.excelRow,docno:m.docno||'',reimb:m.reimb,material:mat,
+            check:'uuid',reason:'Invoice found but its status is not Vigente',
+            cfdi:(String(cV.estatus||'').trim()||'(blank)'),
+            ncc:(d.uuidRaw===null?'(blank)':String(d.uuidRaw)),
+            uuid:cV.rawUuid, status:cV.estatus});
+      continue;
+    }
+    if(isWht){
+      const c=cfdi[nu];
+      const i=parseNum(d.amtIncl);
+      const ret=Math.round((c.ivaR+c.isrR)*100)/100;
+      if(i===null || Math.abs(cents(Math.abs(i))-cents(ret))>1)
+        push({seq:d.seq,row:d.excelRow,docno:m.docno||'',reimb:m.reimb,material:mat,
+              check:'wht',reason:'Withholding does not match IVA Retenido + ISR Retenido',
+              cfdi:money(ret),ncc:money(i===null?null:Math.abs(i)), uuid:c.rawUuid, status:c.estatus});
+      // also keep the WHT line in the group so the total nets out the withholding
+    }
+    const key=d.seq+'|'+nu;
+    if(!groups[key]) groups[key]={seq:d.seq,docno:m.docno||'',reimb:m.reimb,docdate:m.docdate,
+                                  supplier:m.supplier||'', aptype:m.aptype||'', nu, lines:[]};
+    groups[key].lines.push(d);
+  }
+
+  // Pass B (per seq+UUID group): same invoice can be split by expense type within one record,
+  // so total/VAT are reconciled on the SUM of the group, not line by line.
+  const matLabel=(lines)=>{
+    const u=[...new Set(lines.map(l=>l.material!=null?String(l.material).trim():'').filter(Boolean))];
+    return u.length<=1 ? (u[0]||'') : (u[0]+' (+'+(u.length-1)+')');
+  };
+  const VERIFY='Please verify the bank payment amount (reimbursed below the invoice)';
+  for(const key in groups){
+    const g=groups[key];
+    if(amortizedSeqs.has(g.seq)) continue;   // amortized across records: handled/relaxed separately
+    const c=cfdi[g.nu];
+    const mat=matLabel(g.lines);
+    const base={seq:g.seq,row:g.lines[0].excelRow,docno:g.docno,reimb:g.reimb,material:mat,uuid:c.rawUuid,status:c.estatus};
+
+    // month — only for AP + CA Reimbursement records, or suppliers containing PETTY CASH
+    const docPrefix=String(g.docno||'').trim().toUpperCase();
+    const cur=String(g.lines[0].currency||'').trim().toUpperCase();
+    const isPY=docPrefix.startsWith('PY');
+    // PY foreign-currency lines settle at the payment-date FX rate, not the invoice rate,
+    // so VAT(FC) and the exchange rate legitimately differ — skip both for these.
+    const pyForeign = isPY && cur && cur!=='MXN';
+    const monthApplies = (docPrefix.startsWith('AP') && g.aptype.toLowerCase()==='ca reimbursement')
+                         || String(g.supplier||'').toUpperCase().includes('PETTY CASH');
+    if(monthApplies){
+      const nm=nccYM(g.docdate), cm=c.emisYM;
+      if(!nm || !cm || nm[0]!==cm[0] || nm[1]!==cm[1])
+        push({...base,check:'month',reason:'Posting month differs from the invoice issue month',cfdi:ymStr(cm),ncc:ymStr(nm)});
+    }
+
+    // SAT meals rule: within 50 km only 8.5% of IVA is deductible, so booked VAT ≈ 8.5% of the CFDI IVA.
+    const sumVat=g.lines.reduce((a,l)=>a+(parseNum(l.vatamt)||0),0);
+    const sumAmt=g.lines.reduce((a,l)=>a+(parseNum(l.amtIncl)||0),0);
+    const hasMeals = g.lines.some(l=>isMeals(l.material));
+    const mealsSig = c.iva>0 && Math.abs(sumVat - c.iva*0.085) <= 0.01 && cents(sumVat)!==cents(c.iva);
+    const mealsPartial  = hasMeals  && mealsSig;   // properly labeled Travel – Meals: accepted, suppress total & VAT
+    const mealsMislabel = !hasMeals && mealsSig;   // numbers fit the 8.5% rule but Material isn't Travel – Meals
+    const MEAL_MISLABEL = 'Meal \u2264 50 KM but incorrect material';
+
+    // total — NCC AmtIncl.VAT(OC) vs CFDI Total Original XML, exact to the cent. Split invoice summed first.
+    if(!mealsPartial && cents(sumAmt)!==cents(c.totalXml)){
+      const below = cents(c.totalXml)>cents(sumAmt);
+      push({...base,check:'total',
+            reason: mealsMislabel ? MEAL_MISLABEL : (below ? VERIFY : 'Total amount does not match Total Original XML'),
+            cfdi:money(c.totalXml),ncc:money(sumAmt)});
+    }
+    // VAT — exact to the cent; skipped for PY foreign-currency (payment-date FX)
+    if(!mealsPartial && !pyForeign && cents(sumVat)!==cents(c.iva)){
+      const below = cents(c.iva)>cents(sumVat);
+      push({...base,check:'iva',
+            reason: mealsMislabel ? MEAL_MISLABEL : (below ? VERIFY : 'VAT amount does not match the invoice'),
+            cfdi:money(c.iva),ncc:money(sumVat)});
+    }
+    // exchange rate — only for non-MXN lines, and not for PY (those use the payment-date rate)
+    if(cur && cur!=='MXN' && !isPY){
+      const rate=parseNum(g.lines[0].exRate);
+      if(c.tipo===null || rate===null || !fxNear(rate,c.tipo))
+        push({...base,check:'fx',reason:'Exchange rate does not match Tipo Cambio ('+cur+')',
+              cfdi:(c.tipo===null?'(no Tipo Cambio)':String(c.tipo)),ncc:(rate===null?'(blank)':String(rate))});
+    }
+    // cash payment — Forma Pago 01 (Efectivo). Cash-paid gasoline, or any cash payment > $2,000,
+    // must be booked as Non-Deductible Expense (SAT disallows the deduction).
+    const formaIsCash = /^0*1\b/.test(String(c.formaPago||'').trim());   // matches "1", "01", "01 Efectivo"
+    if(formaIsCash){
+      const allNonDed = g.lines.every(l=>String(l.material||'').toLowerCase().includes(NON_DEDUCTIBLE));
+      if(!allNonDed){
+        const isGasoline = String(c.descripcion||'').toLowerCase().includes('gasolina');
+        const formaVal = String(c.formaPago||'').trim() || '(blank)';
+        if(isGasoline){
+          push({...base,check:'cash',reason:"Please Select 'Non-Deductible Expense' for cash-paid gasoline",
+                cfdi:formaVal,ncc:mat});
+        } else if(c.totalXml!==null && c.totalXml>2000){
+          push({...base,check:'cash',reason:"Please Select 'Non-Deductible Expense' for payments > $2,000",
+                cfdi:formaVal,ncc:mat});
+        }
+      }
+    }
+  }
+
+  const summary={records:Object.keys(main).length, lines:details.length, invoices:invCount,
+                 errors:errors.length, duplicates:duplicates.length, amortized:amortized.length,
+                 byCheck:errors.reduce((a,e)=>{a[e.check]=(a[e.check]||0)+1;return a;},{})};
+  return {errors, duplicates, amortized, summary};
+}
+
+/* ---------- rendering ---------- */
+const CHECK_META={
+  uuid:{label:'Invalid UUID', cls:'b-uuid', color:'#B23A2E'},
+  month:{label:'Wrong month', cls:'b-month', color:'#9A6700'},
+  total:{label:'Total mismatch', cls:'b-total', color:'#B65A1E'},
+  iva:{label:'VAT mismatch', cls:'b-iva', color:'#B65A1E'},
+  fx:{label:'Exchange rate mismatch', cls:'b-fx', color:'#2D6A9F'},
+  wht:{label:'Withholding mismatch', cls:'b-wht', color:'#9A6700'},
+  cash:{label:'Cash payment', cls:'b-cash', color:'#6B4BA3'},
+};
+function reimbDisplay(v){
+  const s=(v===null||v===undefined)?'':String(v).trim();
+  return (s===''||s==='-'||s==='NA'||s==='None') ? '—' : s;
+}
+function render(res){
+  lastErrors=res.errors; lastSummary=res.summary;
+  lastDuplicates=res.duplicates||[]; lastAmortized=res.amortized||[];
+  const s=res.summary;
+  document.getElementById('sRecords').textContent=s.records;
+  document.getElementById('sLines').textContent=s.lines;
+  document.getElementById('sInvoices').textContent=s.invoices.toLocaleString('en-US');
+  document.getElementById('sErrors').textContent=s.errors;
+  const errCard=document.getElementById('sErrCard');
+  errCard.classList.toggle('flag', s.errors>0);
+  errCard.classList.toggle('clean', s.errors===0);
+
+  // breakdown chips — duplicate / amortized first, then the per-line checks
+  const bd=document.getElementById('breakdown'); bd.innerHTML='';
+  const chip=(color,label,n)=>{ const c=document.createElement('span'); c.className='chip';
+    c.innerHTML=`<span class="dot" style="background:${color}"></span>${label} <b>${n}</b>`; bd.appendChild(c); };
+  if(s.duplicates>0) chip('#B23A2E','Possible duplicates', s.duplicates);
+  if(s.amortized>0)  chip('#156C63','Amortized invoices', s.amortized);
+  for(const k of ['uuid','month','total','iva','fx','wht']){
+    if(!s.byCheck[k]) continue;
+    chip(CHECK_META[k].color, CHECK_META[k].label, s.byCheck[k]);
+  }
+
+  // duplicate panel (real duplicates only)
+  const dupPanel=document.getElementById('dupPanel');
+  const dupBody=document.getElementById('dupBody'); dupBody.innerHTML='';
+  if(lastDuplicates.length>0){
+    dupPanel.style.display='block';
+    for(const g of lastDuplicates){
+      const recs=g.records.map(r=>
+        `<div class="dup-rec">${r.docno||'—'} <span class="rno">&middot; record ${r.seq}${
+          reimbDisplay(r.reimb)!=='—' ? ' &middot; '+reimbDisplay(r.reimb) : ''}</span></div>`).join('');
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td class="dup-uuid">${g.uuid}</td><td><div class="dup-recs">${recs}</div></td>`
+                  +`<td class="reason">${g.note||''}</td>`;
+      dupBody.appendChild(tr);
+    }
+  } else { dupPanel.style.display='none'; }
+
+  // amortized panel (expected)
+  const amPanel=document.getElementById('amortPanel');
+  const amBody=document.getElementById('amortBody'); amBody.innerHTML='';
+  if(lastAmortized.length>0){
+    amPanel.style.display='block';
+    for(const g of lastAmortized){
+      const inv=`<div class="amort-inv">Total (XML) ${money(g.total)}<div class="sub">VAT ${money(g.iva)}</div></div>`;
+      const share=g.records.length?money(g.records[0].portion):'—';
+      const shareCell=`<div class="amort-share">${share}<span class="k">${g.periods?('\u2248 1 of '+g.periods):'partial share'}</span></div>`;
+      const recs=g.records.map(r=>{
+        const meth = r.metodo && r.metodo!=='—' ? `<span class="pill">${r.metodo}</span>` : '';
+        return `<div class="line">${r.docno||'—'} <span class="m">&middot; record ${r.seq}</span>${meth}</div>`;
+      }).join('');
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td class="amort-uuid">${g.uuid}</td><td>${inv}</td>`
+                  +`<td>${shareCell}</td><td><div class="amort-rec">${recs}</div></td>`;
+      amBody.appendChild(tr);
+    }
+  } else { amPanel.style.display='none'; }
+
+  // table / clean state
+  const body=document.getElementById('resultBody');
+  const table=document.getElementById('resultTable');
+  const clean=document.getElementById('cleanState');
+  body.innerHTML='';
+  if(s.errors===0){
+    table.style.display='none'; clean.style.display='block';
+    const p=clean.querySelector('p');
+    if(s.duplicates>0){
+      clean.querySelector('h2').textContent='No CFDI mismatches';
+      p.textContent='The per-line checks all pass \u2014 but review the possible duplicates flagged above.';
+    } else {
+      clean.querySelector('h2').textContent='Everything ties out';
+      p.textContent='All detail lines match the CFDI invoices'+(s.amortized>0?', and the shared UUIDs are expected amortized invoices.':', with no duplicate UUIDs.');
+    }
+  }
+  else{
+    table.style.display=''; clean.style.display='none';
+    const order={uuid:1,month:2,total:3,iva:4,fx:5,wht:6,cash:7};
+    const sorted=[...res.errors].sort((a,b)=>(order[a.check]-order[b.check])||(parseInt(a.seq)-parseInt(b.seq)));
+    for(const e of sorted){
+      const m=CHECK_META[e.check];
+      const isCancelled=/^cancel/i.test(String(e.status||'').trim());   // Cancelado / Cancelada / Cancelled
+      const statusCell = e.status
+        ? (isCancelled ? `<span class="badge b-cancel">${e.status}</span>` : e.status)
+        : '';
+      const tr=document.createElement('tr');
+      if(isCancelled) tr.className='row-cancel';
+      tr.innerHTML=`
+        <td class="docno">${e.docno||'—'}</td>
+        <td class="reimb">${reimbDisplay(e.reimb)}</td>
+        <td class="material">${e.material||'—'}</td>
+        <td><span class="badge ${m.cls}">${m.label}</span></td>
+        <td class="reason">${e.reason}</td>
+        <td class="cfdi-v">${e.cfdi}</td>
+        <td class="ncc-v">${e.ncc}</td>
+        <td class="uuid-v">${e.uuid||'—'}</td>
+        <td class="status-v">${statusCell}</td>`;
+      body.appendChild(tr);
+    }
+  }
+  document.getElementById('resultsSection').style.display='block';
+  document.getElementById('resultsSection').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ---------- export ---------- */
+function exportXlsx(){
+  if(!lastSummary) return;
+  const order={uuid:1,month:2,total:3,iva:4,fx:5,wht:6,cash:7};
+  const sorted=[...lastErrors].sort((a,b)=>(order[a.check]-order[b.check])||(parseInt(a.seq)-parseInt(b.seq)));
+  const aoa=[['DocNo.','Reimbursement No.','Material','Check','What\u2019s wrong','CFDI (correct)','NCC (recorded)','UUID','Status']];
+  for(const e of sorted)
+    aoa.push([e.docno||'', reimbDisplay(e.reimb), e.material||'', CHECK_META[e.check].label, e.reason, e.cfdi, e.ncc, e.uuid||'', e.status||'']);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:20},{wch:18},{wch:24},{wch:20},{wch:42},{wch:18},{wch:18},{wch:38},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Issues');
+
+  if(lastDuplicates && lastDuplicates.length){
+    const daoa=[['UUID','DocNo.','Reimbursement No.','Record #','Why flagged']];
+    for(const g of lastDuplicates)
+      for(const r of g.records)
+        daoa.push([g.uuid, r.docno||'', reimbDisplay(r.reimb), r.seq, g.note||'']);
+    const dws=XLSX.utils.aoa_to_sheet(daoa);
+    dws['!cols']=[{wch:40},{wch:20},{wch:18},{wch:10},{wch:46}];
+    XLSX.utils.book_append_sheet(wb, dws, 'Possible duplicates');
+  }
+
+  if(lastAmortized && lastAmortized.length){
+    const aaoa=[['UUID','Invoice Total','Invoice VAT','Periods (k)','Per-period share','DocNo.','Record #','Método Pago (CFDI)']];
+    for(const g of lastAmortized)
+      for(const r of g.records)
+        aaoa.push([g.uuid, g.total, g.iva, g.periods||'', r.portion, r.docno||'', r.seq, r.metodo||'']);
+    const aws=XLSX.utils.aoa_to_sheet(aaoa);
+    aws['!cols']=[{wch:40},{wch:14},{wch:14},{wch:11},{wch:16},{wch:20},{wch:10},{wch:16}];
+    XLSX.utils.book_append_sheet(wb, aws, 'Amortized invoices');
+  }
+  XLSX.writeFile(wb, 'NCC_CFDI_reconciliation_issues.xlsx');
+}
+
+/* ---------- wiring ---------- */
+function showError(msg){
+  const a=document.getElementById('alertBox');
+  a.textContent=msg; a.style.display='block';
+}
+function clearError(){ document.getElementById('alertBox').style.display='none'; }
+
+function updateRunState(){
+  const ready = nccRows && cfdiRows;
+  document.getElementById('runBtn').disabled=!ready;
+  document.getElementById('runNote').textContent = ready
+    ? 'Both files loaded — ready to reconcile.'
+    : 'Load both files to continue.';
+}
+
+function wireDrop(dropId, inputId, nameId, metaId, clearId, kind){
+  const drop=document.getElementById(dropId);
+  const input=document.getElementById(inputId);
+  const reset=()=>{
+    if(kind==='ncc') nccRows=null; else cfdiRows=null;
+    input.value='';
+    drop.classList.remove('loaded');
+    document.getElementById(nameId).textContent='';
+    document.getElementById(metaId).textContent='';
+    document.getElementById('resultsSection').style.display='none';  // stale once a file changes
+    clearError(); updateRunState();
+  };
+  const onFile=(file)=>{
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const wb=readWorkbook(new Uint8Array(ev.target.result));
+        if(kind==='ncc'){
+          const r=pickNccRows(wb);
+          if(!r) throw new Error('This doesn\u2019t look like an NCC export (no "payablebill_$head" or "paybill_$head" table found).');
+          nccRows=r;
+        }else{
+          const r=pickCfdiRows(wb);
+          if(!r) throw new Error('This doesn\u2019t look like the CFDI file (no UUID/Total header row found).');
+          cfdiRows=r;
+        }
+        drop.classList.add('loaded');
+        document.getElementById(nameId).textContent=file.name;
+        document.getElementById(metaId).textContent='Loaded';
+        document.getElementById('resultsSection').style.display='none';  // results are stale until re-run
+        clearError(); updateRunState();
+      }catch(err){
+        drop.classList.remove('loaded');
+        if(kind==='ncc') nccRows=null; else cfdiRows=null;
+        document.getElementById(nameId).textContent='';
+        document.getElementById(metaId).textContent='';
+        showError(err.message); updateRunState();
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.addEventListener('change', e=>onFile(e.target.files[0]));
+  const clearBtn=document.getElementById(clearId);
+  if(clearBtn) clearBtn.addEventListener('click', e=>{ e.preventDefault(); e.stopPropagation(); reset(); });
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
+  drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]); });
+}
+
+/* ---------- approved-UUID whitelist ---------- */
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function wlSetStatus(msg,cls){ const el=document.getElementById('wlStatus'); el.textContent=msg||''; el.className='wl-status'+(cls?' '+cls:''); }
+function wlApprovedCount(){ return whitelist.filter(w=>w.reviewed && String(w.uuid||'').trim()).length; }
+function wlUpdateCount(){ document.getElementById('wlCount').innerHTML='<b>'+wlApprovedCount()+'</b> approved'; }
+function renderWhitelist(){
+  const body=document.getElementById('wlBody');
+  if(!whitelist.length){
+    body.innerHTML='<tr class="wl-empty"><td colspan="4">No UUIDs or DocNos yet &mdash; add one, then Save to Cloud.</td></tr>';
+  } else {
+    body.innerHTML=whitelist.map((w,i)=>
+      '<tr>'+
+      '<td class="c-uuid"><input type="text" data-i="'+i+'" data-f="uuid" value="'+escAttr(w.uuid)+'" placeholder="UUID or DocNo."></td>'+
+      '<td><input type="text" data-i="'+i+'" data-f="reason" value="'+escAttr(w.reason)+'" placeholder="why this invoice is exempt"></td>'+
+      '<td class="c-rev"><input type="checkbox" data-i="'+i+'" data-f="reviewed" '+(w.reviewed?'checked':'')+'></td>'+
+      '<td class="c-del"><button type="button" class="wl-del" data-del="'+i+'" title="Remove">&times;</button></td>'+
+      '</tr>').join('');
+  }
+  wlUpdateCount();
+  applyWlFilter();
+}
+function applyWlFilter(){
+  const box=document.getElementById('wlSearch'); if(!box) return;
+  const q=(box.value||'').trim().toLowerCase();
+  document.querySelectorAll('#wlBody tr').forEach(tr=>{
+    if(tr.classList.contains('wl-empty')) return;
+    const u=tr.querySelector('[data-f="uuid"]'), r=tr.querySelector('[data-f="reason"]');
+    const hay=((u?u.value:'')+' '+(r?r.value:'')).toLowerCase();
+    tr.style.display = (!q || hay.includes(q)) ? '' : 'none';
+  });
+}
+
+/* ---- shared cloud store (Google Apps Script web app: GET reads {data:{...}}, POST {key,value} writes) ---- */
+const WL_GS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyUJcveDzPCze_MTPM_sv9ub1_bGTBymMSdGqopAbrnREKQmfYCayhK7jZDOXboFEpeFw/exec';
+const WL_KEY = 'uuidWhitelist';
+function wlEndpoint(){ const v=(document.getElementById('wlUrl').value||'').trim(); return v||WL_GS_URL_DEFAULT; }
+function wlSync(state,msg){ const el=document.getElementById('wlSync'); el.className='sync-status '+state;
+  const icon = state==='loading' ? '<span class="spinner"></span>' : state==='ok' ? '\u2601\uFE0F' : '\u26A0\uFE0F';
+  el.innerHTML = icon+' '+msg; }
+function wlNormalizeEntry(w){
+  const truthy=v=>v===true||/^(true|yes|y|1|\u2713|approved|reviewed|\u5df2\u5ba1\u6838|\u662f)$/i.test(String(v==null?'':v).trim());
+  return { uuid:String((w&&w.uuid)||'').trim(), reason:String((w&&w.reason)||'').trim(), reviewed:truthy(w&&w.reviewed) };
+}
+async function gsGet(){
+  const res=await fetch(wlEndpoint()+'?action=get&t='+Date.now());
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const json=await res.json();
+  return json.data||{};
+}
+async function gsSet(key,value){
+  // no-cors avoids the preflight Apps Script can't answer; response is opaque, so we assume success
+  await fetch(wlEndpoint(),{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify({key,value}) });
+}
+async function loadWhitelistFromCloud(){
+  wlSync('loading','Loading\u2026'); wlSetStatus('');
+  try{
+    const data=await gsGet();
+    const arr=data[WL_KEY];
+    whitelist = Array.isArray(arr) ? arr.map(wlNormalizeEntry) : [];
+    renderWhitelist();
+    wlSync('ok','Cloud sync OK \u00b7 '+wlApprovedCount()+' approved');
+  }catch(e){
+    wlSync('err','Cloud unavailable \u2014 offline');
+    wlSetStatus('Couldn\u2019t reach the cloud ('+e.message+'). You can still edit locally; check the endpoint under \u201cCloud endpoint & setup\u201d.','bad');
+  }
+}
+async function saveWhitelistToCloud(){
+  const btn=document.getElementById('wlSave'), orig=btn.innerHTML;
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Saving\u2026';
+  wlSync('loading','Saving\u2026'); wlSetStatus('');
+  try{
+    const clean=whitelist.filter(w=>String(w.uuid||'').trim()!=='').map(wlNormalizeEntry);
+    await gsSet(WL_KEY, clean);
+    whitelist=clean; renderWhitelist();
+    wlSync('ok','Saved \u2713 '+new Date().toLocaleTimeString());
+    wlSetStatus('Saved to the shared cloud. Colleagues see it after they open the page or press Reload.','ok');
+  }catch(e){
+    wlSync('err','Save failed');
+    wlSetStatus('Save failed: '+e.message+'. Check the endpoint URL and that the Apps Script is deployed for \u201cAnyone\u201d.','bad');
+  }finally{ btn.disabled=false; btn.innerHTML=orig; }
+}
+(function wireWhitelist(){
+  document.getElementById('wlUrl').value = WL_GS_URL_DEFAULT;
+  const card=document.getElementById('wlCard');
+  document.getElementById('wlToggle').addEventListener('click', ()=>{
+    const open=card.classList.toggle('open');
+    document.getElementById('wlToggle').setAttribute('aria-expanded', open?'true':'false');
+  });
+  document.getElementById('wlSearch').addEventListener('input', applyWlFilter);
+  const body=document.getElementById('wlBody');
+  body.addEventListener('input', e=>{ const t=e.target; if(t.dataset && (t.dataset.f==='uuid'||t.dataset.f==='reason')){ whitelist[+t.dataset.i][t.dataset.f]=t.value; if(t.dataset.f==='uuid'){ wlUpdateCount(); applyWlFilter(); } } });
+  body.addEventListener('change', e=>{ const t=e.target; if(t.dataset && t.dataset.f==='reviewed'){ whitelist[+t.dataset.i].reviewed=t.checked; wlUpdateCount(); } });
+  body.addEventListener('click', e=>{ const b=e.target.closest('.wl-del'); if(b){ whitelist.splice(+b.dataset.del,1); renderWhitelist(); } });
+  document.getElementById('wlAdd').addEventListener('click', ()=>{
+    document.getElementById('wlSearch').value='';     // clear filter so the new row is visible
+    whitelist.push({uuid:'',reason:'',reviewed:false}); renderWhitelist();
+    const ins=document.querySelectorAll('#wlBody .c-uuid input'); if(ins.length) ins[ins.length-1].focus(); });
+  document.getElementById('wlSave').addEventListener('click', saveWhitelistToCloud);
+  document.getElementById('wlReload').addEventListener('click', loadWhitelistFromCloud);
+  renderWhitelist();
+  loadWhitelistFromCloud();   // auto-load the shared list on open
+})();
+
+wireDrop('dropNcc','fileNcc','nameNcc','metaNcc','clearNcc','ncc');
+wireDrop('dropCfdi','fileCfdi','nameCfdi','metaCfdi','clearCfdi','cfdi');
+
+document.getElementById('runBtn').addEventListener('click',()=>{
+  clearError();
+  try{ render(analyze()); }
+  catch(err){ showError(err.message); }
+});
+document.getElementById('exportBtn').addEventListener('click', exportXlsx);
+
+
+/* ===================== Suite page switching ===================== */
+function showStep(step){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  var el=document.getElementById('view-'+step);
+  if(el) el.classList.add('active');
+  document.querySelectorAll('.stepnav-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-step')===step);
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ===================== Bank Reconciliation (step 2) ===================== */
+
+let nccFile = null, bankFileIcbc = null, bankFileSan = null, bankFileBbva = null;
+let inflowData = [], outflowData = [];
+let bankOutflowsAll = [];
+let nccOutflowsAll  = [];
+let currentTab = 'inflow';
+
+function onNominaChange() {
+  if (!document.getElementById('results').classList.contains('visible')) return;
+  const include = document.getElementById('nomina-check').checked;
+  const nominaCount = bankOutflowsAll.filter(v => v.isNomina).length;
+  const filtered = include ? bankOutflowsAll : bankOutflowsAll.filter(v => !v.isNomina);
+  outflowData = reconcile(nccOutflowsAll, filtered, 'Outflow');
+  const outMatched = outflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+  const outMissing = outflowData.filter(r => r.note !== '').length;
+  const inMatched  = inflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+  const inMissing  = inflowData.filter(r => r.note !== '').length;
+  renderStats(inMatched, inMissing, outMatched, outMissing);
+  if (currentTab === 'outflow') renderTable('outflow');
+  document.querySelector('.option-desc').textContent = include
+    ? `Bank Outflow includes "Nomina/Payroll" entries (${nominaCount} total)`
+    : `Bank Outflow excludes "Nomina/Payroll" entries (${nominaCount} total)`;
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+// Clear a bank-side upload card and its variable
+function clearBankSide(side) {
+  if (side === 'bank-icbc') { bankFileIcbc = null; }
+  else if (side === 'bank-san') { bankFileSan = null; }
+  else if (side === 'bank-bbva') { bankFileBbva = null; }
+  const card = document.getElementById('card-' + side);
+  if (card) {
+    card.classList.remove('loaded');
+    document.getElementById('name-' + side).textContent = '';
+    const input = card.querySelector('input[type=file]');
+    if (input) input.value = '';
+  }
+}
+
+// When one bank file is loaded, auto-clear the others (mutual exclusion)
+function applyBankMutex(side) {
+  ['bank-icbc', 'bank-san', 'bank-bbva'].forEach(s => {
+    if (s !== side) clearBankSide(s);
+  });
+}
+
+function fileChosen(side, input) {
+  const f = input.files[0];
+  if (!f) return;
+  if (side === 'ncc') nccFile = f;
+  else if (side === 'bank-icbc') { bankFileIcbc = f; applyBankMutex('bank-icbc'); }
+  else if (side === 'bank-san')  { bankFileSan  = f; applyBankMutex('bank-san');  }
+  else if (side === 'bank-bbva') { bankFileBbva = f; applyBankMutex('bank-bbva'); }
+  document.getElementById('card-' + side).classList.add('loaded');
+  document.getElementById('name-' + side).textContent = f.name;
+  checkReady();
+}
+
+function drag(e, side) { e.preventDefault(); document.getElementById('card-'+side).classList.add('dragover'); }
+function undrag(side) { document.getElementById('card-'+side).classList.remove('dragover'); }
+function drop(e, side) {
+  e.preventDefault(); undrag(side);
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (side === 'ncc') nccFile = f;
+  else if (side === 'bank-icbc') { bankFileIcbc = f; applyBankMutex('bank-icbc'); }
+  else if (side === 'bank-san')  { bankFileSan  = f; applyBankMutex('bank-san');  }
+  else if (side === 'bank-bbva') { bankFileBbva = f; applyBankMutex('bank-bbva'); }
+  document.getElementById('card-'+side).classList.add('loaded');
+  document.getElementById('name-'+side).textContent = f.name;
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('run-btn').disabled = !(nccFile && (bankFileIcbc || bankFileSan || bankFileBbva));
+  const anyLoaded = nccFile || bankFileIcbc || bankFileSan || bankFileBbva;
+  document.getElementById('clear-btn').classList.toggle('visible', !!anyLoaded);
+}
+
+function clearAll() {
+  ['ncc', 'bank-icbc', 'bank-san', 'bank-bbva'].forEach(side => {
+    const card = document.getElementById('card-' + side);
+    if (!card) return;
+    card.classList.remove('loaded');
+    document.getElementById('name-' + side).textContent = '';
+    const input = card.querySelector('input[type=file]');
+    if (input) input.value = '';
+  });
+  nccFile = null; bankFileIcbc = null; bankFileSan = null; bankFileBbva = null;
+  document.getElementById('clear-btn').classList.remove('visible');
+  document.getElementById('run-btn').disabled = true;
+  clearLog();
+  bankClearError();
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('validation-section').innerHTML = '';
+  document.getElementById('stats-row').innerHTML = '';
+}
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+function log(msg, type='ok') {
+  const box = document.getElementById('log-box');
+  box.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.textContent = '› ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  const box = document.getElementById('log-box');
+  box.innerHTML = '';
+  box.classList.remove('visible');
+}
+
+function bankShowError(msg) {
+  const b = document.getElementById('err-banner');
+  b.textContent = '⚠ ' + msg;
+  b.classList.add('visible');
+}
+
+function bankClearError() {
+  document.getElementById('err-banner').classList.remove('visible');
+}
+
+// ── Parse NCC xlsx ────────────────────────────────────────────────────────────
+function parseNCC(buffer) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  // New column layout (0-indexed):
+  //   0=Month  1=Day  2=Voucher No.  3=Summary  4=Currency  5=Opposite Account
+  //   6=FC Ex. Rate  7=Debit OC  8=Debit FC  9=Credit OC  10=Credit FC
+  //   11=Direction  12=Balance OC  13=Balance FC
+  //
+  // Reconciliation is always done on FC (functional currency = MXN peso) amounts:
+  //   Inflow  → col 8  (Debit  FC)
+  //   Outflow → col 10 (Credit FC)
+  // OC (original currency) is stored alongside for display / reference.
+  //
+  // Skip strategy: rows without a voucher number are headers or subtotals.
+
+  // Auto-detect layout: check whether col 6 looks like an exchange-rate header
+  // (contains "Rate" or "Ex") to confirm new format; fall back to legacy if not.
+  let useNewLayout = false;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const h6 = rows[i][6] ? String(rows[i][6]).toLowerCase() : '';
+    if (h6.includes('rate') || h6.includes('ex')) { useNewLayout = true; break; }
+    // Also detect by OC/FC header labels in col 7-10
+    const h7 = rows[i][7] ? String(rows[i][7]).toLowerCase() : '';
+    if (h7 === 'oc') { useNewLayout = true; break; }
+  }
+
+  const inflows = [], outflows = [];
+  let skipped = 0;
+  // Validation totals: sum of all "Current Month Total" rows (OC columns)
+  let totalInflow = 0, totalOutflow = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const voucher = row[2] ? String(row[2]).trim() : '';
+    const summary3 = row[3] ? String(row[3]).trim() : '';
+
+    // Collect "Current Month Total" rows for validation (no voucher, D-col matches)
+    if (!voucher && /current month total/i.test(summary3)) {
+      const tIn  = useNewLayout ? parseAmt(row[7]) : parseAmt(row[5]);
+      const tOut = useNewLayout ? parseAmt(row[9]) : parseAmt(row[6]);
+      if (tIn  !== null) totalInflow  = Math.round((totalInflow  + tIn)  * 100) / 100;
+      if (tOut !== null) totalOutflow = Math.round((totalOutflow + tOut) * 100) / 100;
+      skipped++; continue;
+    }
+
+    if (!voucher) { skipped++; continue; }   // no voucher = other header or summary row
+
+    const summary  = summary3;
+    const currency = row[4] ? String(row[4]).trim() : '';
+
+    let debitOC, debitFC, creditOC, creditFC;
+
+    if (useNewLayout) {
+      // New format: col 7=Debit OC, 8=Debit FC, 9=Credit OC, 10=Credit FC
+      debitOC  = parseAmt(row[7]);
+      debitFC  = parseAmt(row[8]);
+      creditOC = parseAmt(row[9]);
+      creditFC = parseAmt(row[10]);
+    } else {
+      // Legacy format: col 5=Debit, 6=Credit (no OC/FC split)
+      debitOC = debitFC  = parseAmt(row[5]);
+      creditOC = creditFC = parseAmt(row[6]);
+    }
+
+    // amt = OC (original currency) — used for reconciliation against Bank Statement
+    // amtFC = FC (functional currency / MXN peso) — stored for display only
+    // exRate = G col (FC Ex. Rate) — displayed between amount and summary
+    // Parse exRate as a plain number without rounding — preserve all decimal places
+    const exRate = useNewLayout ? (() => {
+      const raw = row[6] != null ? String(row[6]).replace(/,/g, '').trim() : '';
+      const v = parseFloat(raw);
+      return (!isNaN(v) && v > 0) ? v : null;
+    })() : null;
+    if (debitOC  !== null && debitOC  !== 0)
+      inflows.push({ amt: debitOC,  amtFC: debitFC,  exRate, currency, summary });
+    if (creditOC !== null && creditOC !== 0)
+      outflows.push({ amt: creditOC, amtFC: creditFC, exRate, currency, summary });
+  }
+
+  const fmt = useNewLayout ? 'new (OC/FC)' : 'legacy';
+  log(`NCC [${fmt}]: ${inflows.length} inflow, ${outflows.length} outflow rows | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Shared amount parser for CSV strings ─────────────────────────────────────
+function parseCsvAmt(s) {
+  if (!s) return null;
+  s = s.replace(/"/g, '').replace(/,/g, '').trim();
+  if (!s || s === ' ') return null;
+  const v = parseFloat(s);
+  return (!isNaN(v) && v > 0) ? Math.round(v * 100) / 100 : null;
+}
+
+// Like parseCsvAmt but also accepts 0 — used for running balance columns
+// so that rows where the balance resets to zero are not skipped.
+function parseCsvBalance(s) {
+  if (!s && s !== '0' && s !== '0.00') return null;
+  s = String(s).replace(/"/g, '').replace(/,/g, '').trim();
+  if (!s || s === ' ') return null;
+  const v = parseFloat(s);
+  return !isNaN(v) ? Math.round(v * 100) / 100 : null;
+}
+
+// ── Parse ICBC Bank CSV (UTF-16, tab-separated) ───────────────────────────────
+// Header row (line 6, 0-indexed): 序号 | 交易时间 | 起息日期 | 业务类型 | 摘要 | 备注 | 收入金额 | 支出金额 | 余额 | 凭证号 | ...
+// ── Parse ICBC Bank CSV (UTF-16, tab-separated) ── UNIVERSAL APPROACH ──────────
+//
+// ICBC CSVs shift column positions between accounts and currencies.
+// Instead of fixed tab indices, we use a column-agnostic strategy:
+//
+//   MONETARY FIELD: tab value contains a decimal point AND matches
+//   /^\d[\d,]*\.\d+$/ — rules out dates, account numbers, bare integers.
+//   tab[0] (row number) is always excluded.
+//
+//   RUNNING BALANCE = last monetary field on each row (verified across files).
+//
+//   DIRECTION = sign of (balance − prevBalance).
+//   delta > 0 → inflow, delta < 0 → outflow. No fixed column dependency.
+//
+//   FIRST ROW (no prevBalance): second-to-last monetary = amount,
+//   direction from balance sign.
+//
+//   合计金额 ROW: first two decimal values = (收入合计, 支出合计).
+//
+function parseBankIcbc(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const text  = (bytes[0] === 0xFF && bytes[1] === 0xFE)
+    ? new TextDecoder('utf-16').decode(bytes)
+    : new TextDecoder('utf-8').decode(bytes);
+
+  const lines = text.split('\r\n');
+  const inflows = [], outflows = [];
+  let totalInflow = null, totalOutflow = null;
+  let prevBalance = null;
+
+  const isMonetary = s => /^\d[\d,]*\.\d+$/.test(s);
+
+  const getMonetary = raw => {
+    const result = [];
+    for (let k = 1; k < raw.length; k++) {
+      const s = raw[k].replace(/"/g, '').trim();
+      if (isMonetary(s)) result.push([k, parseFloat(s.replace(/,/g, ''))]);
+    }
+    return result;
+  };
+
+  const fmtDate = s => s.replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$3-$2-$1');
+
+  const getDateSummary = raw => {
+    let date = '', summary = '';
+    for (let k = 1; k < raw.length; k++) {
+      const s = raw[k].replace(/"/g, '').trim();
+      if (!s) continue;
+      if (!date && /^\d{2}-\d{2}-\d{4}$/.test(s)) { date = fmtDate(s); continue; }
+      if (!summary && !isMonetary(s) && !/^\d{2}-\d{2}-\d{4}/.test(s) && s.length > 1 && k >= 4)
+        summary = s;
+    }
+    return { date, summary };
+  };
+
+  // ── First-row deferred classification.
+  // The balance-delta approach is reliable for every row except the first, because
+  // there is no prior balance to compare against.  We cache the first row and
+  // resolve its direction once the second row supplies prevBalance.
+  // At that point:  firstRowBalance vs prevBalance (= secondRowBalance)
+  //   • firstRowBalance > prevBalance  → first row was an inflow
+  //   • firstRowBalance < prevBalance  → first row was an outflow
+  // This avoids any fixed column assumption and works across all ICBC file layouts.
+  let pendingFirstRow = null;   // { amt, date, summary, balance }
+
+  for (let i = 7; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const raw   = line.split('\t');
+    const label = raw[0].replace(/"/g, '').trim();
+
+    if (label.includes('合计')) {
+      const vals = getMonetary(raw).map(([, v]) => v).filter(v => v > 0);
+      if (vals.length >= 2) { totalInflow = vals[0]; totalOutflow = vals[1]; }
+      continue;
+    }
+
+    if (!label || !/^\d+$/.test(label)) continue;
+
+    const monetary = getMonetary(raw);
+    if (monetary.length === 0) continue;
+
+    const balance = monetary[monetary.length - 1][1];
+    const { date, summary } = getDateSummary(raw);
+
+    if (prevBalance !== null) {
+      // ── Resolve the deferred first row using the second row's delta as a proxy.
+      // We don't have the opening balance, so we use the second row's direction:
+      // if the account is declining (delta2 < 0), the first row was also an outflow.
+      if (pendingFirstRow !== null) {
+        const p = pendingFirstRow;
+        const delta2 = Math.round((balance - prevBalance) * 1e6) / 1e6;
+        if (delta2 < 0 || (delta2 === 0 && p.balance > 0)) {
+          outflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: /nomina|payroll/i.test(p.summary) });
+        } else {
+          inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
+        }
+        pendingFirstRow = null;
+      }
+
+      const delta = Math.round((balance - prevBalance) * 1e6) / 1e6;
+      if (Math.abs(delta) < 0.001) { prevBalance = balance; continue; }
+      const amt = Math.round(Math.abs(delta) * 100) / 100;
+      if (delta > 0) inflows.push({ amt, date, summary, isNomina: false });
+      else           outflows.push({ amt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+    } else {
+      // ── First data row: defer until we have a second balance to compare ──
+      if (monetary.length >= 2) {
+        const amt = Math.round(monetary[monetary.length - 2][1] * 100) / 100;
+        if (amt > 0) pendingFirstRow = { amt, date, summary, balance };
+      }
+    }
+
+    prevBalance = balance;
+  }
+
+  // If the file had only one data row, resolve with inflow as safe default
+  if (pendingFirstRow !== null) {
+    const p = pendingFirstRow;
+    inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  log(`ICBC Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+
+
+
+// ── Parse Santander Bank CSV (UTF-8, comma-separated) ────────────────────────
+// Header row (line 0): Cuenta,Fecha,Hora,Sucursal,Descripcion,Cargo/Abono,Importe,Saldo,Concepto,...
+//   col 4 = Descripcion (summary)
+//   col 5 = Cargo/Abono: "+" = inflow, "-" = outflow
+//   col 6 = Importe (amount, always positive)
+function parseBankSantander(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const text = (bytes[0] === 0xFF && bytes[1] === 0xFE)
+    ? new TextDecoder('utf-16').decode(bytes)
+    : new TextDecoder('utf-8').decode(bytes);
+
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const inflows = [], outflows = [];
+  let dataLines = 0;
+
+  for (let i = 1; i < lines.length; i++) {   // skip header row 0
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    // Simple CSV split (Santander values don't appear to use quoted commas)
+    const parts = line.split(',');
+    if (parts.length < 7) continue;
+
+    const summary   = (parts[4] || '').trim();
+    const direction = (parts[5] || '').trim();   // "+" or "-"
+    const amt       = parseCsvAmt(parts[6]);
+    // Fecha (col 1) arrives as 'ddmmyyyy' wrapped in single quotes, e.g. '11052026'.
+    // Strip quotes/whitespace and reformat to dd/mm/yyyy to match the ICBC date style.
+    const rawDate   = (parts[1] || '').replace(/['"]/g, '').trim();
+    const date      = /^\d{8}$/.test(rawDate)
+      ? `${rawDate.slice(4)}-${rawDate.slice(2, 4)}-${rawDate.slice(0, 2)}`
+      : '';
+
+    if (amt === null || amt <= 0) continue;
+    if (direction !== '+' && direction !== '-') continue;
+
+    if (direction === '+') inflows.push({ amt, date, summary, isNomina: false });
+    else                   outflows.push({ amt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+    dataLines++;
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  // Validation totals: sum all inflow/outflow amounts in this file
+  const totalInflow  = Math.round(inflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const totalOutflow = Math.round(outflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  log(`Santander Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Parse BBVA Bank xlsx ──────────────────────────────────────────────────────
+// Column layout (0-indexed):
+//   0 = Date (dd-mm-yyyy)   1 = Concepto / Referencia (summary)
+//   2 = Outflow (Cargo)     3 = Inflow (Abono)     4 = Saldo (balance)
+// Each data row populates either the Outflow or the Inflow column; direction is
+// taken directly from which of the two columns holds the amount (no balance math).
+// Rows without a valid date (opening-balance / carry-forward lines) are skipped.
+function parseBankBbva(buffer) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  // Reformat dd-mm-yyyy → yyyy-mm-dd to match the ICBC / Santander date style.
+  const fmtDate = s => {
+    const m = String(s == null ? '' : s).trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
+
+  const inflows = [], outflows = [];
+  let skipped = 0;
+
+  for (let i = 1; i < rows.length; i++) {   // skip header row 0
+    const row = rows[i];
+    if (!row) { skipped++; continue; }
+    const date = fmtDate(row[0]);
+    if (!date) { skipped++; continue; }      // no valid date = opening/total row
+
+    const summary = row[1] ? String(row[1]).trim() : '';
+    const outAmt  = parseAmt(row[2]);        // col 2 = Outflow
+    const inAmt   = parseAmt(row[3]);        // col 3 = Inflow
+
+    if (inAmt !== null && inAmt > 0)
+      inflows.push({ amt: inAmt, date, summary, isNomina: false });
+    if (outAmt !== null && outAmt > 0)
+      outflows.push({ amt: outAmt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  // Validation totals: sum all inflow/outflow amounts in this file (no separate control row)
+  const totalInflow  = Math.round(inflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const totalOutflow = Math.round(outflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  log(`BBVA Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Merge two bank result sets ────────────────────────────────────────────────
+function mergeBankData(a, b) {
+  const addN = (x, y) => (x === null && y === null) ? null : Math.round(((x || 0) + (y || 0)) * 100) / 100;
+  return {
+    inflows:       [...a.inflows,  ...b.inflows],
+    outflows:      [...a.outflows, ...b.outflows],
+    totalInflow:   addN(a.totalInflow,  b.totalInflow),
+    totalOutflow:  addN(a.totalOutflow, b.totalOutflow),
+  };
+}
+
+function parseAmt(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).replace(/,/g, '').trim();
+  // Strict check: must be a pure number (digits, optional leading minus, optional decimal point).
+  // Rejects strings like '2026-04--2026-04' or column header text that parseFloat partially parses.
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : Math.round(n * 100) / 100;
+}
+
+// ── Reconciliation logic ──────────────────────────────────────────────────────
+function reconcile(nccList, bankList, side) {
+  // each ncc item: { amt (OC, used for matching), amtFC?, currency?, summary }
+  // each bank item: { amt, summary, isNomina? }
+  const ncc  = [...nccList].sort((a,b) => a.amt - b.amt);
+  const bank = [...bankList].sort((a,b) => a.amt - b.amt);
+  const result = [];
+  let i = 0, j = 0;
+  const nccRow  = (nv, bv, note) => ({
+    ncc: nv ? nv.amt : null, nccSum: nv ? nv.summary : '',
+    nccExRate: nv ? (nv.exRate ?? null) : null,
+    nccAmtFC: nv ? (nv.amtFC ?? null) : null,
+    nccCurrency: nv ? (nv.currency ?? '') : '',
+    bank: bv ? bv.amt : null, bankDate: bv ? (bv.date || '') : '', bankSum: bv ? bv.summary : '',
+    isNomina: bv ? !!bv.isNomina : false,
+    note
+  });
+  while (i < ncc.length || j < bank.length) {
+    const nv = i < ncc.length  ? ncc[i]  : null;
+    const bv = j < bank.length ? bank[j] : null;
+    if (nv === null) {
+      result.push(nccRow(null, bv, `Bank ${side} but not yet in NCC`)); j++;
+    } else if (bv === null) {
+      result.push(nccRow(nv, null, `NCC ${side} but not yet in Bank`)); i++;
+    } else if (nv.amt === bv.amt) {
+      result.push(nccRow(nv, bv, '')); i++; j++;
+    } else if (nv.amt > bv.amt) {
+      result.push(nccRow(null, bv, `Bank ${side} but not yet in NCC`)); j++;
+    } else {
+      result.push(nccRow(nv, null, `NCC ${side} but not yet in Bank`)); i++;
+    }
+  }
+  return result;
+}
+
+// ── Main run ──────────────────────────────────────────────────────────────────
+async function run() {
+  clearLog(); bankClearError();
+  document.getElementById('results').classList.remove('visible');
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  try {
+    log('Reading NCC Bank Journal...', 'info');
+    const nccBuf  = await readFile(nccFile);
+    const nccData = parseNCC(nccBuf);
+
+    let icbcData = null, sanData = null, bbvaData = null, bankData = null;
+    if (bankFileIcbc) {
+      log('Reading ICBC Bank Statement...', 'info');
+      icbcData = parseBankIcbc(await readFile(bankFileIcbc));
+      bankData = icbcData;
+    } else if (bankFileSan) {
+      log('Reading Santander Bank Statement...', 'info');
+      sanData  = parseBankSantander(await readFile(bankFileSan));
+      bankData = sanData;
+    } else if (bankFileBbva) {
+      log('Reading BBVA Bank Statement...', 'info');
+      bbvaData = parseBankBbva(await readFile(bankFileBbva));
+      bankData = bbvaData;
+    } else {
+      throw new Error('Please upload the ICBC, Santander, or BBVA Bank Statement.');
+    }
+
+    log('Running reconciliation...', 'info');
+    bankOutflowsAll = bankData.outflows;
+    nccOutflowsAll  = nccData.outflows;
+    const includeNomina = document.getElementById('nomina-check').checked;
+    const nominaCount = bankOutflowsAll.filter(v => v.isNomina).length;
+    const bankOutFiltered = includeNomina ? bankOutflowsAll : bankOutflowsAll.filter(v => !v.isNomina);
+    inflowData  = reconcile(nccData.inflows, bankData.inflows,  'Inflow');
+    outflowData = reconcile(nccOutflowsAll,  bankOutFiltered,   'Outflow');
+    document.querySelector('.option-desc').textContent = includeNomina
+      ? `Bank Outflow includes "Nomina/Payroll" entries (${nominaCount} total)`
+      : `Bank Outflow excludes "Nomina/Payroll" entries (${nominaCount} total)`;
+
+    const inMatched  = inflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+    const inMissing  = inflowData.filter(r => r.note !== '').length;
+    const outMatched = outflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+    const outMissing = outflowData.filter(r => r.note !== '').length;
+
+    log(`Inflow: ${inMatched} matched, ${inMissing} discrepancies`);
+    log(`Outflow: ${outMatched} matched, ${outMissing} discrepancies`);
+    log('Done ✓', 'ok');
+
+    renderStats(inMatched, inMissing, outMatched, outMissing);
+    renderValidation(nccData, icbcData, sanData, bbvaData);  // only one bank is non-null
+    renderTable('inflow');
+    document.getElementById('results').classList.add('visible');
+
+  } catch(e) {
+    bankShowError(e.message || String(e));
+    log('Error: ' + (e.message || e), 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function readFile(f) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    // .slice() returns a fresh copy so the ArrayBuffer is never detached
+    // between runs — prevents SheetJS zlib "Bad uncompressed size" errors
+    r.onload = e => res(e.target.result.slice(0));
+    r.onerror = () => rej(new Error('Failed to read ' + f.name));
+    r.readAsArrayBuffer(f);
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function fmt(v) {
+  if (v === null || v === undefined) return '';
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+
+// ── Render validation totals ──────────────────────────────────────────────────
+function renderValidation(nccData, icbcData, sanData, bbvaData) {
+  const sec = document.getElementById('validation-section');
+  if (!sec) return;
+
+  const fmtV = v => v === null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sumAmt = arr => Math.round(arr.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const matchOk = (parsed, ctrl) => ctrl === null ? null : Math.abs(parsed - ctrl) < 0.015;
+
+  const badge = ok => ok === null
+    ? `<span class="vmatch-badge" style="background:var(--paper2);color:var(--ink3);border:1px solid var(--border)">N/A</span>`
+    : ok
+      ? `<span class="vmatch-badge ok">✓ Match</span>`
+      : `<span class="vmatch-badge warn">⚠ Mismatch</span>`;
+
+  // Each vrow shows: parsed sum (from individual rows) vs control total (from summary row)
+  const vrow = (label, parsed, ctrl) => {
+    const ok = matchOk(parsed, ctrl);
+    return `
+    <div class="vrow">
+      <span class="vrow-label">${label}</span>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">
+        <span class="vrow-val">${fmtV(parsed)}<span style="font-size:9px;color:var(--ink3);margin-left:4px">parsed</span></span>
+        ${ctrl !== null ? `<span class="vrow-val" style="font-size:10px;color:var(--ink3)">${fmtV(ctrl)}<span style="font-size:9px;margin-left:4px">control</span></span>` : ''}
+      </span>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:2px 0 6px">${badge(ok)}</div>`;
+  };
+
+  const buildCard = (title, dotColor, data) => {
+    const parsedIn  = sumAmt(data.inflows);
+    const parsedOut = sumAmt(data.outflows);
+    const ctrlIn    = data.totalInflow  ?? null;
+    const ctrlOut   = data.totalOutflow ?? null;
+    return `
+    <div class="vcard">
+      <div class="vcard-title">
+        <span class="vcard-dot" style="background:${dotColor}"></span>${title}
+      </div>
+      ${vrow('Inflow',  parsedIn,  ctrlIn)}
+      ${vrow('Outflow', parsedOut, ctrlOut)}
+    </div>`;
+  };
+
+  // NCC: control = Current Month Total (sum of all months)
+  // ICBC: control = 合计金额 row
+  // Santander: no separate control row — null out totals so badge shows N/A
+  const icbcCard = icbcData
+    ? buildCard('ICBC Bank Statement', '#4a90d9', icbcData)
+    : '';
+  const sanCardClean = sanData
+    ? buildCard('Santander Statement', '#c0392b', { ...sanData, totalInflow: null, totalOutflow: null })
+    : '';
+  const bbvaCardClean = bbvaData
+    ? buildCard('BBVA Statement', '#1565c0', { ...bbvaData, totalInflow: null, totalOutflow: null })
+    : '';
+  const bankCard = icbcCard || sanCardClean || bbvaCardClean;
+
+  sec.innerHTML = `
+    <div class="validation-title">Data integrity check</div>
+    <div class="validation-grid">
+      ${buildCard('NCC Bank Journal', 'var(--accent)', nccData)}
+      ${bankCard}
+    </div>`;
+}
+
+function renderStats(inM, inD, outM, outD) {
+  const row = document.getElementById('stats-row');
+  row.innerHTML = `
+    <div class="stat-card"><span class="stat-num ok">${inM}</span><span class="stat-label">Inflow Matched</span></div>
+    <div class="stat-card ${inD>0?'has-warn':''}"><span class="stat-num ${inD>0?'warn':'ok'}">${inD}</span><span class="stat-label">Inflow Gaps</span></div>
+    <div class="stat-card"><span class="stat-num ok">${outM}</span><span class="stat-label">Outflow Matched</span></div>
+    <div class="stat-card ${outD>0?'has-warn':''}"><span class="stat-num ${outD>0?'warn':'ok'}">${outD}</span><span class="stat-label">Outflow Gaps</span></div>
+  `;
+}
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(tab);
+}
+
+function renderTable(tab) {
+  const data = tab === 'inflow' ? inflowData : outflowData;
+  const colA = tab === 'inflow' ? 'NCC Inflow' : 'NCC Outflow';
+  const colB = tab === 'inflow' ? 'Bank Inflow' : 'Bank Outflow';
+
+  // Check whether any NCC row has FC data (new format with OC/FC split)
+  const hasFC = data.some(r => r.nccAmtFC !== undefined && r.nccAmtFC !== null && r.nccCurrency);
+  const hasExRate = data.some(r => r.nccExRate !== null && r.nccExRate !== undefined);
+
+  document.getElementById('tbl-head').innerHTML = hasExRate
+    ? `<tr><th>${colA}</th><th>FC Ex. Rate</th><th>Summary</th><th>${colB}</th><th>Date</th><th>Summary</th><th>Note</th></tr>`
+    : `<tr><th>${colA}</th><th>Summary</th><th>${colB}</th><th>Date</th><th>Summary</th><th>Note</th></tr>`;
+
+  let sumA = 0, sumB = 0;
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+
+  data.forEach(row => {
+    const matched = row.ncc !== null && row.bank !== null;
+    const cls = matched ? 'matched' : (row.ncc === null ? 'unmatched-b' : 'unmatched-a');
+    const tr = document.createElement('tr');
+    tr.className = cls;
+    const nominaBadge = row.isNomina ? '<span class="nomina-badge">NÓMINA/PAYROLL</span>' : '';
+    const blankNcc  = row.ncc  === null;
+    const blankBank = row.bank === null;
+
+    const exRateCell = hasExRate
+      ? `<td class="${blankNcc ? 'blank-cell' : ''}" style="font-size:11px;color:var(--ink3);text-align:right;font-variant-numeric:tabular-nums">${(!blankNcc && row.nccExRate != null) ? row.nccExRate.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:10}) : ''}</td>`
+      : '';
+    tr.innerHTML = `
+      <td class="td-num ${blankNcc ? 'blank-cell' : ''}">${!blankNcc ? fmt(row.ncc) : '—'}</td>
+      ${exRateCell}
+      <td class="${blankNcc ? 'blank-cell' : ''}">${row.nccSum || ''}</td>
+      <td class="td-num ${blankBank ? 'blank-cell' : ''}">${!blankBank ? fmt(row.bank) : '—'}</td>
+      <td class="${blankBank ? 'blank-cell' : ''}" style="font-size:11px;color:var(--ink3)">${row.bankDate || ''}</td>
+      <td class="${blankBank ? 'blank-cell' : ''}">${row.bankSum || ''}${nominaBadge}</td>
+      <td class="note-text">${row.note || ''}</td>`;
+    tbody.appendChild(tr);
+    if (row.ncc  !== null) sumA += row.ncc;
+    if (row.bank !== null) sumB += row.bank;
+  });
+
+  document.getElementById('tbl-foot').innerHTML = `
+    <tr>
+      <td class="td-num"><strong>${fmt(sumA)}</strong></td>
+      ${hasExRate ? '<td></td>' : ''}
+      <td></td>
+      <td class="td-num"><strong>${fmt(sumB)}</strong></td>
+      <td></td>
+      <td></td>
+      <td><strong>Total</strong></td>
+    </tr>`;
+}
+
+// ── Download XLSX ─────────────────────────────────────────────────────────────
+function downloadXlsx() {
+  const wb = XLSX.utils.book_new();
+  function buildSheet(data, colA, colB) {
+    const hasER = data.some(r => r.nccExRate !== null && r.nccExRate !== undefined);
+    const rows = hasER
+      ? [[colA, 'FC Ex. Rate', 'Summary', colB, 'Date', 'Summary', 'Note']]
+      : [[colA, 'Summary', colB, 'Date', 'Summary', 'Note']];
+    let sumA = 0, sumB = 0;
+    data.forEach(r => {
+      rows.push(hasER
+        ? [r.ncc ?? '', r.nccExRate ?? '', r.nccSum || '', r.bank ?? '', r.bankDate || '', r.bankSum || '', r.note || '']
+        : [r.ncc ?? '', r.nccSum || '', r.bank ?? '', r.bankDate || '', r.bankSum || '', r.note || '']);
+      if (r.ncc  !== null) sumA += r.ncc;
+      if (r.bank !== null) sumB += r.bank;
+    });
+    rows.push(hasER
+      ? [sumA, '', '', sumB, '', '', 'Total']
+      : [sumA, '', sumB, '', '', 'Total']);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = hasER
+      ? [{ wch: 16 }, { wch: 12 }, { wch: 42 }, { wch: 16 }, { wch: 13 }, { wch: 42 }, { wch: 38 }]
+      : [{ wch: 16 }, { wch: 42 }, { wch: 16 }, { wch: 13 }, { wch: 42 }, { wch: 38 }];
+    return ws;
+  }
+
+  XLSX.utils.book_append_sheet(wb, buildSheet(inflowData,  'NCC Inflow',  'Bank Inflow'),  'Inflow Reconciliation');
+  XLSX.utils.book_append_sheet(wb, buildSheet(outflowData, 'NCC Outflow', 'Bank Outflow'), 'Outflow Reconciliation');
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `Bank_Reconciliation_${stamp}.xlsx`);
+}
+
+/* ===================== DIOT Creation (step 3) ===================== */
+/* Reuses shared helpers already defined above: readWorkbook, pickNccRows,
+   pickCfdiRows, sheetToRows, normUuid, isUuidFormat, parseNum, isSeq,
+   leadText, headerNorm, isBlank, money. */
+
+let diotApRows = null, diotPyRows = null, diotCfdiObj = null;   // loaded sources
+let diotReport = [], diotFlags = [], diotStats = null;          // last results
+
+/* ---------- logging (scoped) ---------- */
+function diotLog(msg, type='ok'){
+  const box=document.getElementById('diot-log-box');
+  box.classList.add('visible');
+  const line=document.createElement('div');
+  line.className='log-line '+type;
+  line.textContent='\u203a '+msg;
+  box.appendChild(line);
+  box.scrollTop=box.scrollHeight;
+}
+function diotClearLog(){ const b=document.getElementById('diot-log-box'); b.innerHTML=''; b.classList.remove('visible'); }
+function diotShowError(msg){ const a=document.getElementById('diot-err-banner'); a.textContent=msg; a.style.display='block'; }
+function diotClearError(){ document.getElementById('diot-err-banner').style.display='none'; }
+
+/* ---------- file handling (independent per-card clear) ---------- */
+function diotSetLoaded(kind, file, ok){
+  const card=document.getElementById('diot-card-'+kind);
+  if(ok){ card.classList.add('loaded'); document.getElementById('diot-name-'+kind).textContent=file.name; }
+  else { card.classList.remove('loaded'); document.getElementById('diot-name-'+kind).textContent=''; }
+}
+function diotResetSource(kind){
+  if(kind==='ap') diotApRows=null;
+  else if(kind==='py') diotPyRows=null;
+  else diotCfdiObj=null;
+}
+function diotStale(){ document.getElementById('diot-results').classList.remove('visible'); }
+
+function diotLoadFile(kind, file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try{
+      const wb=readWorkbook(new Uint8Array(ev.target.result));
+      if(kind==='cfdi'){
+        const r=pickCfdiRows(wb);
+        if(!r) throw new Error('That doesn\u2019t look like the Received CFDI file (no UUID / Total header row found).');
+        diotCfdiObj=r;
+      } else {
+        const rows=pickNccRows(wb);
+        if(!rows) throw new Error('That doesn\u2019t look like an NCC export (no "payablebill_$head" / "paybill_$head" table found).');
+        // confirm the detail table exposes the columns we need
+        diotExtractNcc(rows, kind==='ap'?'NCC AP':'NCC PY');   // throws if UUID / VATAmt(FC) missing
+        if(kind==='ap') diotApRows=rows; else diotPyRows=rows;
+      }
+      diotSetLoaded(kind, file, true);
+      diotClearError(); diotStale(); diotUpdateRunState();
+    }catch(err){
+      diotResetSource(kind); diotSetLoaded(kind, file, false);
+      diotShowError(err.message); diotUpdateRunState();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function diotFileChosen(kind, input){ const f=input.files[0]; if(f) diotLoadFile(kind, f); }
+function diotClearCard(kind, e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  diotResetSource(kind);
+  diotSetLoaded(kind, null, false);
+  const input=document.getElementById('diot-file-'+kind); if(input) input.value='';
+  diotClearError(); diotStale(); diotUpdateRunState();
+}
+function diotDrag(e, kind){ e.preventDefault(); document.getElementById('diot-card-'+kind).classList.add('dragover'); }
+function diotUndrag(kind){ document.getElementById('diot-card-'+kind).classList.remove('dragover'); }
+function diotDrop(e, kind){
+  e.preventDefault(); diotUndrag(kind);
+  const f=e.dataTransfer.files[0]; if(f) diotLoadFile(kind, f);
+}
+function diotUpdateRunState(){
+  const ready = diotApRows && diotPyRows && diotCfdiObj;
+  document.getElementById('diot-run-btn').disabled=!ready;
+  document.getElementById('diot-run-note').textContent = ready
+    ? 'All three files loaded \u2014 ready to generate.'
+    : 'Load all three files to continue.';
+}
+
+/* ---------- NCC detail extraction (by header name; AP & PY layouts differ) ---------- */
+function diotExtractNcc(rows, srcLabel){
+  let bodyHdr=-1;
+  for(let i=0;i<rows.length;i++){
+    if(leadText(rows[i] && rows[i][0]).toLowerCase().startsWith('bodys')){ bodyHdr=i; break; }
+  }
+  if(bodyHdr<0) throw new Error(srcLabel+': could not find the detail (bodys) table.');
+  const normHdr=s=>String(s==null?'':s).replace(/^\*\s*/,'').trim().toLowerCase();
+  const map={}; (rows[bodyHdr]||[]).forEach((v,i)=>{ const k=normHdr(v); if(k && !(k in map)) map[k]=i; });
+  const ui=('uuid' in map)?map['uuid']:-1;
+  const vi=('vatamt(fc)' in map)?map['vatamt(fc)']:-1;
+  if(ui<0 || vi<0) throw new Error(srcLabel+': the detail table is missing a UUID or VATAmt(FC) column.');
+  const out=[];
+  for(let i=bodyHdr+1;i<rows.length;i++){
+    const r=rows[i]; if(!r || !isSeq(r[0])) continue;   // skip subtotal / non-line rows
+    out.push({ uuidRaw:r[ui], vat:parseNum(r[vi])||0, src:srcLabel });
+  }
+  return out;
+}
+
+/* ---------- core: build the DIOT report ---------- */
+function diotGenerate(){
+  // (1) Index the CFDI file by UUID -> {rfc, estatus}.  O(1) lookups for large files.
+  const cf=diotCfdiObj;
+  const hrow=cf.rows[cf.headerIdx].map(headerNorm);
+  const col=(names)=>{
+    for(const n of names){ const i=hrow.indexOf(n); if(i>=0) return i; }
+    for(let i=0;i<hrow.length;i++){ if(names.some(n=>hrow[i].startsWith(n))) return i; }
+    return -1;
+  };
+  const cU=col(['uuid']);
+  let cEst=col(['estatus','status']); if(cEst<0) cEst=2;                 // CFDI column C fallback
+  const cRfc=col(['emisor rfc','rfc emisor','emisorrfc','emisor']);
+  if(cU<0) throw new Error('The Received CFDI file has no UUID column.');
+
+  const cfdi=new Map();
+  for(let i=cf.headerIdx+1;i<cf.rows.length;i++){
+    const r=cf.rows[i]; if(!r) continue;
+    const u=r[cU]; if(isBlank(u)) continue;
+    const nu=normUuid(u);
+    if(!cfdi.has(nu)) cfdi.set(nu, {
+      rfc:     cRfc>=0 ? String(r[cRfc]==null?'':r[cRfc]).trim() : '',
+      estatus: cEst>=0 ? String(r[cEst]==null?'':r[cEst]).trim() : ''
+    });
+  }
+  diotLog('CFDI file indexed \u2014 '+cfdi.size.toLocaleString('en-US')+' invoices.', 'info');
+
+  // (2) Extract & filter NCC detail; aggregate VAT per valid UUID across both files.
+  const det=[...diotExtractNcc(diotApRows,'NCC AP'), ...diotExtractNcc(diotPyRows,'NCC PY')];
+  const linesRead=det.length;
+  let skipped=0;
+  const agg=new Map();                     // nu -> {vat, lines, srcs:Set}
+  for(const d of det){
+    const nu=normUuid(d.uuidRaw);
+    if(!isUuidFormat(nu)){ skipped++; continue; }   // blanks / '-' / 'tip' / 'NA' …
+    let e=agg.get(nu);
+    if(!e){ e={vat:0, lines:0, srcs:new Set()}; agg.set(nu, e); }
+    e.vat+=d.vat; e.lines++; e.srcs.add(d.src);
+  }
+  diotLog(linesRead.toLocaleString('en-US')+' detail lines read \u00b7 '+skipped+' skipped (invalid UUID) \u00b7 '+agg.size+' unique invoices.', 'ok');
+
+  // (3) Left-join each UUID to the CFDI index; classify status.
+  const report=[], flags=[];
+  let notFound=0, notVigente=0;
+  for(const [nu, e] of agg){
+    const c=cfdi.get(nu) || null;
+    const estatus = c ? c.estatus : '';
+    let state;
+    if(!c){ state='missing'; notFound++; }
+    else if(estatus.toLowerCase()==='vigente'){ state='valid'; }
+    else { state='invalid'; notVigente++; }
+    const row={ vat:e.vat, rfc: c ? c.rfc : '', uuid:nu, estatus, state, lines:e.lines, src:[...e.srcs].join(' + ') };
+    report.push(row);
+    if(state!=='valid') flags.push(row);
+  }
+  // group the report by issuer RFC (DIOT is filed per third party), then by UUID
+  report.sort((a,b)=> (a.rfc||'\uffff').localeCompare(b.rfc||'\uffff') || a.uuid.localeCompare(b.uuid));
+  flags.sort((a,b)=> (a.rfc||'\uffff').localeCompare(b.rfc||'\uffff') || a.uuid.localeCompare(b.uuid));
+
+  if(notVigente) diotLog(notVigente+' invoice(s) matched but not Vigente (e.g. Cancelado).', 'warn');
+  if(notFound)   diotLog(notFound+' invoice UUID(s) not found in the CFDI file.', 'warn');
+
+  diotReport=report; diotFlags=flags;
+  diotStats={ rows:report.length, linesRead, skipped, notFound, notVigente,
+              totalVat: report.reduce((s,r)=>s+r.vat,0), invoicesLoaded: cfdi.size };
+  return diotStats;
+}
+
+/* ---------- rendering ---------- */
+function diotEstBadge(row){
+  if(row.state==='valid')   return '<span class="est-badge est-vigente">'+(row.estatus||'Vigente')+'</span>';
+  if(row.state==='missing') return '<span class="est-badge est-missing">Not in CFDI</span>';
+  return '<span class="est-badge est-cancel">'+(row.estatus||'Invalid')+'</span>';
+}
+function diotMoney(n){ return (n==null?0:n).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function diotRenderStats(s){
+  const issues=s.notFound+s.notVigente;
+  document.getElementById('diot-stats-row').innerHTML=
+    '<div class="stat-card"><span class="stat-num ok">'+s.rows.toLocaleString('en-US')+'</span><span class="stat-label">Report Rows</span></div>'+
+    '<div class="stat-card"><span class="stat-num">'+s.linesRead.toLocaleString('en-US')+'</span><span class="stat-label">Detail Lines Read</span></div>'+
+    '<div class="stat-card"><span class="stat-num">'+s.skipped.toLocaleString('en-US')+'</span><span class="stat-label">Invalid UUIDs Skipped</span></div>'+
+    '<div class="stat-card '+(issues>0?'has-warn':'')+'"><span class="stat-num '+(issues>0?'warn':'ok')+'">'+issues.toLocaleString('en-US')+'</span><span class="stat-label">Needing Review</span></div>';
+
+  document.getElementById('diot-breakdown').innerHTML=
+    '<span class="chip"><span class="dot" style="background:var(--pass)"></span>Total VAT <b>'+diotMoney(s.totalVat)+'</b></span>'+
+    '<span class="chip"><span class="dot" style="background:var(--accent)"></span>Vigente <b>'+(s.rows-s.notFound-s.notVigente).toLocaleString('en-US')+'</b></span>'+
+    '<span class="chip"><span class="dot" style="background:var(--err)"></span>Cancelado / other <b>'+s.notVigente.toLocaleString('en-US')+'</b></span>'+
+    '<span class="chip"><span class="dot" style="background:var(--warn)"></span>Not in CFDI <b>'+s.notFound.toLocaleString('en-US')+'</b></span>';
+}
+
+function diotRenderFlags(){
+  const panel=document.getElementById('diot-flag-panel');
+  if(!diotFlags.length){ panel.classList.remove('visible'); return; }
+  panel.classList.add('visible');
+  document.getElementById('diot-flag-body').innerHTML=diotFlags.map(r=>
+    '<tr><td class="td-uuid">'+r.uuid+'</td><td class="td-rfc">'+(r.rfc||'\u2014')+
+    '</td><td class="td-num">'+diotMoney(r.vat)+'</td><td>'+diotEstBadge(r)+'</td></tr>').join('');
+}
+
+function diotRenderTable(){
+  // Build as one string for speed on large datasets.
+  const parts=new Array(diotReport.length);
+  for(let i=0;i<diotReport.length;i++){
+    const r=diotReport[i];
+    parts[i]='<tr class="'+(r.state==='valid'?'':'row-flag')+'">'+
+      '<td class="td-num">'+diotMoney(r.vat)+'</td>'+
+      '<td class="td-rfc">'+(r.rfc||'\u2014')+'</td>'+
+      '<td class="td-uuid">'+r.uuid+'</td>'+
+      '<td>'+diotEstBadge(r)+'</td></tr>';
+  }
+  document.getElementById('diot-body').innerHTML=parts.join('');
+  document.getElementById('diot-foot').innerHTML=
+    '<tr><td class="td-num">'+diotMoney(diotStats.totalVat)+'</td>'+
+    '<td colspan="2"><strong>Total \u00b7 '+diotStats.rows.toLocaleString('en-US')+' invoices</strong></td><td></td></tr>';
+}
+
+/* ---------- run (keeps the UI responsive) ---------- */
+function diotRun(){
+  diotClearError(); diotClearLog();
+  const btn=document.getElementById('diot-run-btn');
+  btn.classList.add('loading'); btn.disabled=true;
+  diotLog('Reading workbooks\u2026', 'info');
+  // yield once so the spinner paints before the heavy synchronous work
+  setTimeout(()=>{
+    try{
+      const stats=diotGenerate();
+      diotRenderStats(stats);
+      diotRenderFlags();
+      diotRenderTable();
+      document.getElementById('diot-results').classList.add('visible');
+      diotLog('Done \u2014 DIOT report ready ('+stats.rows.toLocaleString('en-US')+' rows).', 'ok');
+    }catch(err){
+      diotShowError(err.message);
+      diotLog(err.message, 'error');
+    }finally{
+      btn.classList.remove('loading'); btn.disabled=false;
+      diotUpdateRunState();
+    }
+  }, 30);
+}
+
+/* ---------- export (exactly the 4 DIOT columns, in sequence) ---------- */
+function diotDownloadXlsx(){
+  if(!diotReport.length) return;
+  const aoa=[['VAT','Emisor RFC','UUID','Estatus']];
+  for(const r of diotReport){
+    aoa.push([ Math.round(r.vat*100)/100, r.rfc||'', r.uuid,
+               r.state==='missing' ? '' : r.estatus ]);
+  }
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:14},{wch:18},{wch:40},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DIOT');
+  const now=new Date();
+  const stamp=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0');
+  XLSX.writeFile(wb, 'DIOT_Report_'+stamp+'.xlsx');
+}
+
+</script>
