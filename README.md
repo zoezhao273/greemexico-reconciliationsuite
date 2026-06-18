@@ -6,7 +6,7 @@ The suite has three modules, selectable from the top navigation:
 
 1. **NCC × CFDI Reconciliation** — line-by-line validation of the reimbursement export against the CFDI file (Checks 1–8). The **CFDI file is the source of truth** for invoice status, amounts, exchange rate, payment form, and issuer RFC.
 2. **Bank Reconciliation** — matches the NCC bank journal against one bank statement (ICBC, Santander, or BBVA), separately for inflows and outflows, and validates against control totals.
-3. **DIOT Creation** — aggregates VAT per invoice across the AP and PY files and produces the four-column DIOT report.
+3. **DIOT Creation** — aggregates IVA per invoice across the AP and PY files, enriches each UUID with figures pulled from the CFDI, and produces the DIOT compliance report.
 
 ---
 
@@ -66,13 +66,13 @@ Reconciliation runs per detail line and per `(record × UUID)` group. A single i
 **Check 8 — Cash payment.** Runs only when CFDI `Forma Pago = 01` (Efectivo / cash; the value `1`, `01`, or `01 …` are all recognized). Two SAT cases must be booked as `Non-Deductible Expense`:
 
 - **(a) Gasoline** — CFDI `Conceptos Descripción` contains `GASOLINA` (case-insensitive). If the booked material is not `Non-Deductible Expense`, the line is flagged "Please Select 'Non-Deductible Expense' for cash-paid gasoline".
-- **(b) Payments over $2,000** — CFDI `Total Original XML > 2000`. If the booked material is not `Non-Deductible Expense`, the line is flagged "Please Select 'Non-Deductible Expense' for payments > $2,000".
+- **(b) Payments over $2,000** — CFDI `Total Original XML > 2000`. If the booked material is not `Non-Deductible Expense`, the line is flagged "Please verify payment method at first. If paid via cash, select 'Non-Deductible Expense' for payments > $2,000".
 
 If both conditions apply, only the gasoline message is shown (no double-flagging). When the group is split across several lines, it passes only if **every** line is `Non-Deductible Expense`. In the issue list the **CFDI (correct)** column shows the invoice's Forma Pago value, and **NCC (recorded)** shows the booked material.
 
 ### Exemptions (skip all checks)
 
-- Records whose supplier is `GREE AIRCONDITIONING MEXICO` or `CDMX GOV` (salary / tax related).
+- Records whose supplier is `GREE AIRCONDITIONING MEXICO` or `CDMX GOV` (salary / tax related), or `MEXICO CUSTOMS` (Pedimento / customs fees).
 - `PY` documents whose `PmtType` is `Cash Advance Payment` or `Cash Avance Return` (not invoice related).
 - Any UUID or `DocNo.` marked reviewed on the **whitelist** panel. A whitelisted standard SAT UUID exempts that invoice wherever it appears; a `DocNo.` exempts the whole expense record.
 - A reviewed whitelist entry that is **neither** a standard UUID **nor** a matched `DocNo.` — e.g. a **foreign-invoice number** such as `26427000000277781101` or `ZSPE26021337A` that legitimately has no CFDI — is matched against the NCC invoice-number column, exempting that line from the *UUID-not-found* flag (and every downstream check) once reviewed.
@@ -103,9 +103,11 @@ Results show inflow/outflow matched counts and discrepancies, with a downloadabl
 Cross-references NCC accounting documents (the CA Reimbursement and Pmt Doc For SCM exports) against the received CFDI file by UUID to build the Mexican DIOT compliance report.
 
 - Extracts and validates UUIDs from the NCC detail tables, skipping invalid/placeholder UUIDs.
-- Left-joins each UUID to the CFDI file to retrieve `Estatus` and `Emisor RFC`, classifying each as Vigente, Cancelado/other, or not found.
-- Aggregates VAT per unique UUID across both NCC files.
-- Outputs a four-column report — **VAT · Emisor RFC · UUID · Estatus** — with a flag panel for anything needing review, exportable to Excel.
+- Aggregates `IVA (NCC)` (`VATAmt(FC)`) and collects `IVA Rate (NCC)` (`* VATCode`) per unique UUID across both NCC files.
+- Left-joins each UUID to the CFDI file to retrieve `Emisor RFC`, `Estatus`, and the invoice figures pulled straight from the CFDI by UUID: `Base IVA 16`, `Base IVA 8`, `Base IVA 0`, `Base IVA Exento`, `Descuento`, `IVA`, `IVA Retenido`, `ISR Retenido`. Each UUID is classified as Vigente, Cancelado/other, or not found.
+- Adds a `Note` column comparing `IVA (NCC)` against the CFDI `IVA` (compared to the cent): **equal** → blank; **greater** → `Wrong, please check AP/PY Doc` (highlighted red); **less** → `reimbursed below the invoice`.
+- **Filter:** a row is dropped when `IVA (NCC) = 0` **and** every contributing NCC line is `Material = Non-Deductible Expense`.
+- Outputs the report columns in sequence — **IVA (NCC) · IVA Rate (NCC) · Emisor RFC · UUID · Estatus · Base IVA 16 · Base IVA 8 · Base IVA 0 · Base IVA Exento · Descuento · IVA · IVA Retenido · ISR Retenido · Note** — with a flag panel for anything needing review, exportable to Excel.
 
 ---
 
