@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Reconciliation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    /* palette unified with the NCC × CFDI audit tool */
+    --ink:          #16212B;
+    --ink2:         #33424F;
+    --ink3:         #6B7785;
+    --paper:        #EDF0F3;
+    --paper2:       #F4F6F8;
+    --paper3:       #E8ECF0;
+    --surface:      #FFFFFF;
+    --accent:       #156C63;
+    --accent2:      #0F5650;
+    --accent-light: #E4EFED;
+    --accent-mid:   #BFE0DA;
+    --pass:         #1C8C5A;
+    --warn:         #9A6700;
+    --warn-light:   #FBF3DF;
+    --warn-mid:     #E8D08A;
+    --err:          #B23A2E;
+    --err-light:    #FBEEEC;
+    --err-mid:      #E7C3BD;
+    --match-light:  #F4FAF6;
+    --border:       #DBE0E6;
+    --border-light: #EEF1F3;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Masthead (dark, matches audit tool) ── */
+  header.masthead { background: var(--ink); color: #EAF0F2; padding: 34px 0 30px; }
+  .mast-inner { max-width: 880px; margin: 0 auto; padding: 0 28px; }
+
+  .container {
+    position: relative;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 36px 28px 96px;
+  }
+
+  /* ── Header (inside masthead) ── */
+  header.masthead .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .logo-mark svg { display: block; }
+
+  .logo-text {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #8CA3AE;
+    font-weight: 600;
+  }
+
+  .logo-sep {
+    width: 1px; height: 14px;
+    background: #2E3E49;
+    margin: 0 2px;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: clamp(26px, 4vw, 30px);
+    line-height: 1.1;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--accent-mid);
+  }
+
+  .subtitle {
+    font-size: 14.5px;
+    color: #A9BAC3;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+
+  /* tie-out motif — mirrors the audit tool's ledger tags */
+  .tieout { display: flex; align-items: center; gap: 16px; margin-top: 22px; flex-wrap: wrap; }
+  .ledgertag {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+    border: 1px solid #2E3E49; background: #1C2A35; color: #CFE0E5;
+    padding: 7px 12px; border-radius: 6px; display: inline-flex; gap: 8px; align-items: center;
+  }
+  .ledgertag b { color: #fff; font-weight: 700; }
+  .tie { color: var(--accent-mid); font-size: 18px; font-weight: 700; }
+  .tie-soft { color: #5B7C82; font-family: var(--mono); font-size: 12px; }
+
+  /* ── Section divider ── */
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  /* ── Upload grid ── */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  @media (max-width: 560px) { .upload-grid { grid-template-columns: 1fr; } }
+
+  .upload-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 24px 20px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.12s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .upload-card:hover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-1px);
+  }
+
+  .upload-card.dragover { border-color: var(--accent); background: var(--accent-light); }
+
+  .upload-card.loaded {
+    border-color: var(--pass);
+    background: #F4FAF6;
+  }
+
+  .upload-card input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .upload-icon-wrap {
+    width: 44px; height: 44px;
+    background: var(--paper2);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+    font-size: 20px;
+    transition: background 0.18s;
+    flex-shrink: 0;
+  }
+
+  .upload-card:hover .upload-icon-wrap,
+  .upload-card.loaded .upload-icon-wrap { background: var(--accent-mid); }
+
+  .upload-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .upload-hint {
+    font-size: 10px;
+    color: var(--ink3);
+    line-height: 1.65;
+  }
+
+  .upload-filename {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--pass);
+    margin-top: 8px;
+    word-break: break-all;
+    display: none;
+    font-weight: 600;
+  }
+
+  .upload-card.loaded .upload-filename { display: block; }
+  .upload-card.loaded .upload-hint { display: none; }
+
+  .optional-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 0 2px;
+  }
+
+  .optional-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    white-space: nowrap;
+  }
+
+  .optional-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  /* ── Options toggle ── */
+  .options-row { margin-bottom: 20px; }
+
+  .option-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 18px;
+    transition: border-color 0.18s, background 0.18s;
+    user-select: none;
+    width: 100%;
+  }
+
+  .option-toggle:hover { border-color: var(--accent); background: var(--accent-light); }
+  .option-toggle input[type=checkbox] { display: none; }
+
+  .toggle-track {
+    flex-shrink: 0;
+    position: relative;
+    width: 38px; height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    transition: background 0.2s;
+  }
+
+  .option-toggle input:checked ~ .toggle-track { background: var(--accent); }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+
+  .option-toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(16px); }
+
+  .option-text { display: flex; flex-direction: column; gap: 2px; }
+  .option-title { font-size: 12px; font-weight: 500; color: var(--ink); }
+  .option-desc  { font-size: 10px; color: var(--ink3); }
+
+  /* ── Error banner ── */
+  /* ── Clear button ── */
+  .clear-btn {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink3);
+    cursor: pointer;
+    transition: color 0.15s;
+    margin-left: auto;
+  }
+
+  .clear-btn.visible { display: flex; }
+  .clear-btn:hover { color: var(--err); }
+
+  .clear-btn-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .error-banner {
+    background: var(--err-light);
+    border: 1px solid var(--err-mid);
+    border-left: 3px solid var(--err);
+    border-radius: 9px;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #8A2C22;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  /* ── Run button ── */
+  .run-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.05s;
+    margin-bottom: 28px;
+  }
+
+  .run-btn:hover:not(:disabled) {
+    background: var(--accent2);
+  }
+
+  .run-btn:active:not(:disabled) { transform: translateY(1px); }
+
+  .run-btn:disabled {
+    background: #B7C2C9;
+    color: #fff;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .run-btn .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  .run-btn.loading .spinner { display: block; }
+  .run-btn.loading .btn-text { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Log box ── */
+  .log-box {
+    background: #16212B;
+    color: #8ec9a4;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    line-height: 1.85;
+    margin-bottom: 28px;
+    display: none;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid #2a3742;
+  }
+
+  .log-box.visible { display: block; }
+  .log-line.warn  { color: #f0c070; }
+  .log-line.error { color: #e88080; }
+  .log-line.ok    { color: #8ec9a4; }
+  .log-line.info  { color: #7ab8d8; }
+
+  /* ── Results ── */
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .results-title {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .download-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: #fff;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: background 0.18s;
+  }
+
+  .download-btn:hover { background: var(--accent-light); }
+
+  /* ── Stats row ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 16px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.18;
+  }
+
+  .stat-card.has-warn::before { background: var(--err); opacity: 0.7; }
+
+  .stat-num {
+    font-family: var(--sans);
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    display: block;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-num.warn { color: var(--err); }
+  .stat-num.ok   { color: var(--pass); }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    display: block;
+    line-height: 1.4;
+  }
+
+  /* ── Validation section ── */
+  .validation-section { margin-bottom: 20px; }
+
+  .validation-title {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .validation-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+
+  .validation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  @media (max-width: 640px) { .validation-grid { grid-template-columns: 1fr; } }
+
+  .vcard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 14px 16px;
+    font-size: 11px;
+  }
+
+  .vcard-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 500;
+  }
+
+  .vcard-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .vrow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 8px;
+  }
+
+  .vrow-label {
+    color: var(--ink3);
+    font-size: 10px;
+    padding-top: 1px;
+  }
+
+  .vrow-val {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .vmatch-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+
+  .vmatch-badge.ok   { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-mid); }
+  .vmatch-badge.warn { background: var(--warn-light);   color: var(--warn);   border: 1px solid var(--warn-mid); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 0;
+  }
+
+  .tab-btn {
+    padding: 11px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink3);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    transition: color 0.15s;
+    letter-spacing: 0;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ── Table ── */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  thead th {
+    background: #FAFBFC;
+    color: var(--ink3);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  thead th:first-child { padding-left: 20px; }
+
+  tbody tr { border-bottom: 1px solid var(--border-light); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #FBFCFD !important; }
+
+  tbody td {
+    padding: 11px 16px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody td:first-child { padding-left: 20px; }
+
+  .td-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  tr.matched { background: var(--match-light); }
+  tr.unmatched-a { background: var(--warn-light); }
+  tr.unmatched-b { background: var(--warn-light); }
+
+  .note-text {
+    color: var(--warn);
+    font-size: 12px;
+  }
+
+  .blank-cell { color: var(--ink3); }
+
+  tfoot td {
+    background: #FAFBFC;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tfoot td:first-child { padding-left: 20px; }
+
+  /* ── Nómina badge ── */
+  .nomina-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--warn-light);
+    color: var(--warn);
+    border: 1px solid var(--warn-mid);
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  /* ── Instructions ── */
+  .instructions {
+    margin-top: 48px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 32px;
+  }
+
+  .instructions h3 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 20px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .step-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.65;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="mast-inner">
+    <div class="logo-row">
+      <div class="logo-mark">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="1" width="5" height="5" rx="1" fill="white" opacity="0.9"/>
+          <rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+          <rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+          <rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/>
+        </svg>
+      </div>
+      <span class="logo-sep"></span>
+      <span class="logo-text">GREE Mexico</span>
+    </div>
+    <h1>Bank Reconciliation</h1>
+    <p class="subtitle">Upload the NCC Bank Journal and one or two Bank Statement files — the tool merges both banks, compares inflows and outflows against control totals, flags discrepancies, and exports a ready-to-use reconciliation file.</p>
+    <div class="tieout">
+      <span class="ledgertag"><b>NCC</b> bank journal</span>
+      <span class="tie">&#8644;</span>
+      <span class="ledgertag"><b>Bank</b> statement</span>
+      <span class="tie-soft">&middot; matched by amount</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div style="display:flex;align-items:center;margin-bottom:12px">
+    <div class="section-label" style="flex:1;margin-bottom:0">Upload files</div>
+    <button class="clear-btn" id="clear-btn" onclick="clearAll()">
+      <span class="clear-btn-dot">×</span>
+      Clear all
+    </button>
+  </div>
+
+  <div class="upload-grid">
+    <div class="upload-card" id="card-ncc" ondragover="drag(event,'ncc')" ondragleave="undrag('ncc')" ondrop="drop(event,'ncc')">
+      <input type="file" id="file-ncc" accept=".xlsx,.xls" onchange="fileChosen('ncc',this)">
+      <div class="upload-icon-wrap">📒</div>
+      <div class="upload-title">NCC Bank Journal</div>
+      <div class="upload-hint">.xlsx · accounting system export<br>OC/FC columns auto-detected</div>
+      <div class="upload-filename" id="name-ncc"></div>
+    </div>
+
+    <div class="upload-card" id="card-bank-icbc" ondragover="drag(event,'bank-icbc')" ondragleave="undrag('bank-icbc')" ondrop="drop(event,'bank-icbc')">
+      <input type="file" id="file-bank-icbc" accept=".csv" onchange="fileChosen('bank-icbc',this)">
+      <div class="upload-icon-wrap">🏦</div>
+      <div class="upload-title">Bank Statement — ICBC</div>
+      <div class="upload-hint">.csv · UTF-16 tab-separated<br>收入 / 支出金额 columns</div>
+      <div class="upload-filename" id="name-bank-icbc"></div>
+    </div>
+  </div>
+
+  <div class="optional-row">
+    <span class="optional-label">Santander / BBVA — optional</span>
+    <span class="optional-line"></span>
+  </div>
+
+  <div class="upload-grid" style="margin-bottom:24px">
+    <div class="upload-card" id="card-bank-san" ondragover="drag(event,'bank-san')" ondragleave="undrag('bank-san')" ondrop="drop(event,'bank-san')">
+      <input type="file" id="file-bank-san" accept=".csv" onchange="fileChosen('bank-san',this)">
+      <div class="upload-icon-wrap">🏛</div>
+      <div class="upload-title">Bank Statement — Santander</div>
+      <div class="upload-hint">.csv · UTF-8 comma-separated<br>Descripcion / Cargo/Abono columns</div>
+      <div class="upload-filename" id="name-bank-san"></div>
+    </div>
+    <div class="upload-card" id="card-bank-bbva" ondragover="drag(event,'bank-bbva')" ondragleave="undrag('bank-bbva')" ondrop="drop(event,'bank-bbva')">
+      <input type="file" id="file-bank-bbva" accept=".xlsx,.xls" onchange="fileChosen('bank-bbva',this)">
+      <div class="upload-icon-wrap">🏧</div>
+      <div class="upload-title">Bank Statement — BBVA</div>
+      <div class="upload-hint">.xlsx · Date / Concepto<br>Outflow / Inflow / Saldo columns</div>
+      <div class="upload-filename" id="name-bank-bbva"></div>
+    </div>
+  </div>
+
+
+  <div class="options-row">
+    <label class="option-toggle" id="nomina-label">
+      <input type="checkbox" id="nomina-check" checked onchange="onNominaChange()">
+      <span class="toggle-track">
+        <span class="toggle-thumb"></span>
+      </span>
+      <span class="option-text">
+        <span class="option-title">Nómina Include</span>
+        <span class="option-desc">Include Bank Outflow entries with "Nomina" or "Payroll" in summary</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="error-banner" id="err-banner"></div>
+
+  <button class="run-btn" id="run-btn" onclick="run()" disabled>
+    <div class="spinner"></div>
+    <span class="btn-text">Run Reconciliation</span>
+  </button>
+
+  <div class="log-box" id="log-box"></div>
+
+  <div class="results" id="results">
+    <div class="section-label" style="margin-bottom:20px">Results</div>
+    <div class="results-header">
+      <button class="download-btn" id="dl-btn" onclick="downloadXlsx()">Download Excel</button>
+    </div>
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="validation-section" id="validation-section"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('inflow',this)">Inflow</button>
+      <button class="tab-btn" onclick="switchTab('outflow',this)">Outflow</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="preview-table">
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+        <tfoot id="tbl-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h3>How to use</h3>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><span>Export the monthly NCC Bank Journal (.xlsx) from your accounting system. Export the ICBC Bank Statement (.csv, UTF-16) and optionally the Santander Bank Statement (.csv, UTF-8) from each bank portal.</span></li>
+      <li><div class="step-num">2</div><span>Upload both the NCC Bank Journal and a Bank Statement — both are required. For the Bank Statement, upload either the ICBC file <strong>or</strong> the Santander file, not both at the same time. Uploading a second bank file will automatically clear the first.</span></li>
+      <li><div class="step-num">3</div><span>Click <strong>Run Reconciliation</strong>. The tool auto-detects formats, skips subtotal rows, sorts by amount, and compares line by line.</span></li>
+      <li><div class="step-num">4</div><span>Preview the discrepancies on screen, then click <strong>Download Excel</strong> to save the reconciliation report with two worksheets.</span></li>
+      <li><div class="step-num">5</div><span>Yellow highlight = entry missing on one side. Green = matched. The Note column explains each discrepancy.</span></li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+let nccFile = null, bankFileIcbc = null, bankFileSan = null, bankFileBbva = null;
+let inflowData = [], outflowData = [];
+let bankOutflowsAll = [];
+let nccOutflowsAll  = [];
+let currentTab = 'inflow';
+
+function onNominaChange() {
+  if (!document.getElementById('results').classList.contains('visible')) return;
+  const include = document.getElementById('nomina-check').checked;
+  const nominaCount = bankOutflowsAll.filter(v => v.isNomina).length;
+  const filtered = include ? bankOutflowsAll : bankOutflowsAll.filter(v => !v.isNomina);
+  outflowData = reconcile(nccOutflowsAll, filtered, 'Outflow');
+  const outMatched = outflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+  const outMissing = outflowData.filter(r => r.note !== '').length;
+  const inMatched  = inflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+  const inMissing  = inflowData.filter(r => r.note !== '').length;
+  renderStats(inMatched, inMissing, outMatched, outMissing);
+  if (currentTab === 'outflow') renderTable('outflow');
+  document.querySelector('.option-desc').textContent = include
+    ? `Bank Outflow includes "Nomina/Payroll" entries (${nominaCount} total)`
+    : `Bank Outflow excludes "Nomina/Payroll" entries (${nominaCount} total)`;
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+// Clear a bank-side upload card and its variable
+function clearBankSide(side) {
+  if (side === 'bank-icbc') { bankFileIcbc = null; }
+  else if (side === 'bank-san') { bankFileSan = null; }
+  else if (side === 'bank-bbva') { bankFileBbva = null; }
+  const card = document.getElementById('card-' + side);
+  if (card) {
+    card.classList.remove('loaded');
+    document.getElementById('name-' + side).textContent = '';
+    const input = card.querySelector('input[type=file]');
+    if (input) input.value = '';
+  }
+}
+
+// When one bank file is loaded, auto-clear the others (mutual exclusion)
+function applyBankMutex(side) {
+  ['bank-icbc', 'bank-san', 'bank-bbva'].forEach(s => {
+    if (s !== side) clearBankSide(s);
+  });
+}
+
+function fileChosen(side, input) {
+  const f = input.files[0];
+  if (!f) return;
+  if (side === 'ncc') nccFile = f;
+  else if (side === 'bank-icbc') { bankFileIcbc = f; applyBankMutex('bank-icbc'); }
+  else if (side === 'bank-san')  { bankFileSan  = f; applyBankMutex('bank-san');  }
+  else if (side === 'bank-bbva') { bankFileBbva = f; applyBankMutex('bank-bbva'); }
+  document.getElementById('card-' + side).classList.add('loaded');
+  document.getElementById('name-' + side).textContent = f.name;
+  checkReady();
+}
+
+function drag(e, side) { e.preventDefault(); document.getElementById('card-'+side).classList.add('dragover'); }
+function undrag(side) { document.getElementById('card-'+side).classList.remove('dragover'); }
+function drop(e, side) {
+  e.preventDefault(); undrag(side);
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (side === 'ncc') nccFile = f;
+  else if (side === 'bank-icbc') { bankFileIcbc = f; applyBankMutex('bank-icbc'); }
+  else if (side === 'bank-san')  { bankFileSan  = f; applyBankMutex('bank-san');  }
+  else if (side === 'bank-bbva') { bankFileBbva = f; applyBankMutex('bank-bbva'); }
+  document.getElementById('card-'+side).classList.add('loaded');
+  document.getElementById('name-'+side).textContent = f.name;
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('run-btn').disabled = !(nccFile && (bankFileIcbc || bankFileSan || bankFileBbva));
+  const anyLoaded = nccFile || bankFileIcbc || bankFileSan || bankFileBbva;
+  document.getElementById('clear-btn').classList.toggle('visible', !!anyLoaded);
+}
+
+function clearAll() {
+  ['ncc', 'bank-icbc', 'bank-san', 'bank-bbva'].forEach(side => {
+    const card = document.getElementById('card-' + side);
+    if (!card) return;
+    card.classList.remove('loaded');
+    document.getElementById('name-' + side).textContent = '';
+    const input = card.querySelector('input[type=file]');
+    if (input) input.value = '';
+  });
+  nccFile = null; bankFileIcbc = null; bankFileSan = null; bankFileBbva = null;
+  document.getElementById('clear-btn').classList.remove('visible');
+  document.getElementById('run-btn').disabled = true;
+  clearLog();
+  clearError();
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('validation-section').innerHTML = '';
+  document.getElementById('stats-row').innerHTML = '';
+}
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+function log(msg, type='ok') {
+  const box = document.getElementById('log-box');
+  box.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.textContent = '› ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  const box = document.getElementById('log-box');
+  box.innerHTML = '';
+  box.classList.remove('visible');
+}
+
+function showError(msg) {
+  const b = document.getElementById('err-banner');
+  b.textContent = '⚠ ' + msg;
+  b.classList.add('visible');
+}
+
+function clearError() {
+  document.getElementById('err-banner').classList.remove('visible');
+}
+
+// ── Parse NCC xlsx ────────────────────────────────────────────────────────────
+function parseNCC(buffer) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  // New column layout (0-indexed):
+  //   0=Month  1=Day  2=Voucher No.  3=Summary  4=Currency  5=Opposite Account
+  //   6=FC Ex. Rate  7=Debit OC  8=Debit FC  9=Credit OC  10=Credit FC
+  //   11=Direction  12=Balance OC  13=Balance FC
+  //
+  // Reconciliation is always done on FC (functional currency = MXN peso) amounts:
+  //   Inflow  → col 8  (Debit  FC)
+  //   Outflow → col 10 (Credit FC)
+  // OC (original currency) is stored alongside for display / reference.
+  //
+  // Skip strategy: rows without a voucher number are headers or subtotals.
+
+  // Auto-detect layout: check whether col 6 looks like an exchange-rate header
+  // (contains "Rate" or "Ex") to confirm new format; fall back to legacy if not.
+  let useNewLayout = false;
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const h6 = rows[i][6] ? String(rows[i][6]).toLowerCase() : '';
+    if (h6.includes('rate') || h6.includes('ex')) { useNewLayout = true; break; }
+    // Also detect by OC/FC header labels in col 7-10
+    const h7 = rows[i][7] ? String(rows[i][7]).toLowerCase() : '';
+    if (h7 === 'oc') { useNewLayout = true; break; }
+  }
+
+  const inflows = [], outflows = [];
+  let skipped = 0;
+  // Validation totals: sum of all "Current Month Total" rows (OC columns)
+  let totalInflow = 0, totalOutflow = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const voucher = row[2] ? String(row[2]).trim() : '';
+    const summary3 = row[3] ? String(row[3]).trim() : '';
+
+    // Collect "Current Month Total" rows for validation (no voucher, D-col matches)
+    if (!voucher && /current month total/i.test(summary3)) {
+      const tIn  = useNewLayout ? parseAmt(row[7]) : parseAmt(row[5]);
+      const tOut = useNewLayout ? parseAmt(row[9]) : parseAmt(row[6]);
+      if (tIn  !== null) totalInflow  = Math.round((totalInflow  + tIn)  * 100) / 100;
+      if (tOut !== null) totalOutflow = Math.round((totalOutflow + tOut) * 100) / 100;
+      skipped++; continue;
+    }
+
+    if (!voucher) { skipped++; continue; }   // no voucher = other header or summary row
+
+    const summary  = summary3;
+    const currency = row[4] ? String(row[4]).trim() : '';
+
+    let debitOC, debitFC, creditOC, creditFC;
+
+    if (useNewLayout) {
+      // New format: col 7=Debit OC, 8=Debit FC, 9=Credit OC, 10=Credit FC
+      debitOC  = parseAmt(row[7]);
+      debitFC  = parseAmt(row[8]);
+      creditOC = parseAmt(row[9]);
+      creditFC = parseAmt(row[10]);
+    } else {
+      // Legacy format: col 5=Debit, 6=Credit (no OC/FC split)
+      debitOC = debitFC  = parseAmt(row[5]);
+      creditOC = creditFC = parseAmt(row[6]);
+    }
+
+    // amt = OC (original currency) — used for reconciliation against Bank Statement
+    // amtFC = FC (functional currency / MXN peso) — stored for display only
+    // exRate = G col (FC Ex. Rate) — displayed between amount and summary
+    // Parse exRate as a plain number without rounding — preserve all decimal places
+    const exRate = useNewLayout ? (() => {
+      const raw = row[6] != null ? String(row[6]).replace(/,/g, '').trim() : '';
+      const v = parseFloat(raw);
+      return (!isNaN(v) && v > 0) ? v : null;
+    })() : null;
+    if (debitOC  !== null && debitOC  !== 0)
+      inflows.push({ amt: debitOC,  amtFC: debitFC,  exRate, currency, summary });
+    if (creditOC !== null && creditOC !== 0)
+      outflows.push({ amt: creditOC, amtFC: creditFC, exRate, currency, summary });
+  }
+
+  const fmt = useNewLayout ? 'new (OC/FC)' : 'legacy';
+  log(`NCC [${fmt}]: ${inflows.length} inflow, ${outflows.length} outflow rows | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Shared amount parser for CSV strings ─────────────────────────────────────
+function parseCsvAmt(s) {
+  if (!s) return null;
+  s = s.replace(/"/g, '').replace(/,/g, '').trim();
+  if (!s || s === ' ') return null;
+  const v = parseFloat(s);
+  return (!isNaN(v) && v > 0) ? Math.round(v * 100) / 100 : null;
+}
+
+// Like parseCsvAmt but also accepts 0 — used for running balance columns
+// so that rows where the balance resets to zero are not skipped.
+function parseCsvBalance(s) {
+  if (!s && s !== '0' && s !== '0.00') return null;
+  s = String(s).replace(/"/g, '').replace(/,/g, '').trim();
+  if (!s || s === ' ') return null;
+  const v = parseFloat(s);
+  return !isNaN(v) ? Math.round(v * 100) / 100 : null;
+}
+
+// ── Parse ICBC Bank CSV (UTF-16, tab-separated) ───────────────────────────────
+// Header row (line 6, 0-indexed): 序号 | 交易时间 | 起息日期 | 业务类型 | 摘要 | 备注 | 收入金额 | 支出金额 | 余额 | 凭证号 | ...
+// ── Parse ICBC Bank CSV (UTF-16, tab-separated) ── UNIVERSAL APPROACH ──────────
+//
+// ICBC CSVs shift column positions between accounts and currencies.
+// Instead of fixed tab indices, we use a column-agnostic strategy:
+//
+//   MONETARY FIELD: tab value contains a decimal point AND matches
+//   /^\d[\d,]*\.\d+$/ — rules out dates, account numbers, bare integers.
+//   tab[0] (row number) is always excluded.
+//
+//   RUNNING BALANCE = last monetary field on each row (verified across files).
+//
+//   DIRECTION = sign of (balance − prevBalance).
+//   delta > 0 → inflow, delta < 0 → outflow. No fixed column dependency.
+//
+//   FIRST ROW (no prevBalance): second-to-last monetary = amount,
+//   direction from balance sign.
+//
+//   合计金额 ROW: first two decimal values = (收入合计, 支出合计).
+//
+function parseBankIcbc(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const text  = (bytes[0] === 0xFF && bytes[1] === 0xFE)
+    ? new TextDecoder('utf-16').decode(bytes)
+    : new TextDecoder('utf-8').decode(bytes);
+
+  const lines = text.split('\r\n');
+  const inflows = [], outflows = [];
+  let totalInflow = null, totalOutflow = null;
+  let prevBalance = null;
+
+  const isMonetary = s => /^\d[\d,]*\.\d+$/.test(s);
+
+  const getMonetary = raw => {
+    const result = [];
+    for (let k = 1; k < raw.length; k++) {
+      const s = raw[k].replace(/"/g, '').trim();
+      if (isMonetary(s)) result.push([k, parseFloat(s.replace(/,/g, ''))]);
+    }
+    return result;
+  };
+
+  const fmtDate = s => s.replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$3-$2-$1');
+
+  const getDateSummary = raw => {
+    let date = '', summary = '';
+    for (let k = 1; k < raw.length; k++) {
+      const s = raw[k].replace(/"/g, '').trim();
+      if (!s) continue;
+      if (!date && /^\d{2}-\d{2}-\d{4}$/.test(s)) { date = fmtDate(s); continue; }
+      if (!summary && !isMonetary(s) && !/^\d{2}-\d{2}-\d{4}/.test(s) && s.length > 1 && k >= 4)
+        summary = s;
+    }
+    return { date, summary };
+  };
+
+  // ── First-row deferred classification.
+  // The balance-delta approach is reliable for every row except the first, because
+  // there is no prior balance to compare against.  We cache the first row and
+  // resolve its direction once the second row supplies prevBalance.
+  // At that point:  firstRowBalance vs prevBalance (= secondRowBalance)
+  //   • firstRowBalance > prevBalance  → first row was an inflow
+  //   • firstRowBalance < prevBalance  → first row was an outflow
+  // This avoids any fixed column assumption and works across all ICBC file layouts.
+  let pendingFirstRow = null;   // { amt, date, summary, balance }
+
+  for (let i = 7; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const raw   = line.split('\t');
+    const label = raw[0].replace(/"/g, '').trim();
+
+    if (label.includes('合计')) {
+      const vals = getMonetary(raw).map(([, v]) => v).filter(v => v > 0);
+      if (vals.length >= 2) { totalInflow = vals[0]; totalOutflow = vals[1]; }
+      continue;
+    }
+
+    if (!label || !/^\d+$/.test(label)) continue;
+
+    const monetary = getMonetary(raw);
+    if (monetary.length === 0) continue;
+
+    const balance = monetary[monetary.length - 1][1];
+    const { date, summary } = getDateSummary(raw);
+
+    if (prevBalance !== null) {
+      // ── Resolve the deferred first row using the second row's delta as a proxy.
+      // We don't have the opening balance, so we use the second row's direction:
+      // if the account is declining (delta2 < 0), the first row was also an outflow.
+      if (pendingFirstRow !== null) {
+        const p = pendingFirstRow;
+        const delta2 = Math.round((balance - prevBalance) * 1e6) / 1e6;
+        if (delta2 < 0 || (delta2 === 0 && p.balance > 0)) {
+          outflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: /nomina|payroll/i.test(p.summary) });
+        } else {
+          inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
+        }
+        pendingFirstRow = null;
+      }
+
+      const delta = Math.round((balance - prevBalance) * 1e6) / 1e6;
+      if (Math.abs(delta) < 0.001) { prevBalance = balance; continue; }
+      const amt = Math.round(Math.abs(delta) * 100) / 100;
+      if (delta > 0) inflows.push({ amt, date, summary, isNomina: false });
+      else           outflows.push({ amt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+    } else {
+      // ── First data row: defer until we have a second balance to compare ──
+      if (monetary.length >= 2) {
+        const amt = Math.round(monetary[monetary.length - 2][1] * 100) / 100;
+        if (amt > 0) pendingFirstRow = { amt, date, summary, balance };
+      }
+    }
+
+    prevBalance = balance;
+  }
+
+  // If the file had only one data row, resolve with inflow as safe default
+  if (pendingFirstRow !== null) {
+    const p = pendingFirstRow;
+    inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  log(`ICBC Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+
+
+
+// ── Parse Santander Bank CSV (UTF-8, comma-separated) ────────────────────────
+// Header row (line 0): Cuenta,Fecha,Hora,Sucursal,Descripcion,Cargo/Abono,Importe,Saldo,Concepto,...
+//   col 4 = Descripcion (summary)
+//   col 5 = Cargo/Abono: "+" = inflow, "-" = outflow
+//   col 6 = Importe (amount, always positive)
+function parseBankSantander(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const text = (bytes[0] === 0xFF && bytes[1] === 0xFE)
+    ? new TextDecoder('utf-16').decode(bytes)
+    : new TextDecoder('utf-8').decode(bytes);
+
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const inflows = [], outflows = [];
+  let dataLines = 0;
+
+  for (let i = 1; i < lines.length; i++) {   // skip header row 0
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    // Simple CSV split (Santander values don't appear to use quoted commas)
+    const parts = line.split(',');
+    if (parts.length < 7) continue;
+
+    const summary   = (parts[4] || '').trim();
+    const direction = (parts[5] || '').trim();   // "+" or "-"
+    const amt       = parseCsvAmt(parts[6]);
+    // Fecha (col 1) arrives as 'ddmmyyyy' wrapped in single quotes, e.g. '11052026'.
+    // Strip quotes/whitespace and reformat to dd/mm/yyyy to match the ICBC date style.
+    const rawDate   = (parts[1] || '').replace(/['"]/g, '').trim();
+    const date      = /^\d{8}$/.test(rawDate)
+      ? `${rawDate.slice(4)}-${rawDate.slice(2, 4)}-${rawDate.slice(0, 2)}`
+      : '';
+
+    if (amt === null || amt <= 0) continue;
+    if (direction !== '+' && direction !== '-') continue;
+
+    if (direction === '+') inflows.push({ amt, date, summary, isNomina: false });
+    else                   outflows.push({ amt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+    dataLines++;
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  // Validation totals: sum all inflow/outflow amounts in this file
+  const totalInflow  = Math.round(inflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const totalOutflow = Math.round(outflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  log(`Santander Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Parse BBVA Bank xlsx ──────────────────────────────────────────────────────
+// Column layout (0-indexed):
+//   0 = Date (dd-mm-yyyy)   1 = Concepto / Referencia (summary)
+//   2 = Outflow (Cargo)     3 = Inflow (Abono)     4 = Saldo (balance)
+// Each data row populates either the Outflow or the Inflow column; direction is
+// taken directly from which of the two columns holds the amount (no balance math).
+// Rows without a valid date (opening-balance / carry-forward lines) are skipped.
+function parseBankBbva(buffer) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+  // Reformat dd-mm-yyyy → yyyy-mm-dd to match the ICBC / Santander date style.
+  const fmtDate = s => {
+    const m = String(s == null ? '' : s).trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
+
+  const inflows = [], outflows = [];
+  let skipped = 0;
+
+  for (let i = 1; i < rows.length; i++) {   // skip header row 0
+    const row = rows[i];
+    if (!row) { skipped++; continue; }
+    const date = fmtDate(row[0]);
+    if (!date) { skipped++; continue; }      // no valid date = opening/total row
+
+    const summary = row[1] ? String(row[1]).trim() : '';
+    const outAmt  = parseAmt(row[2]);        // col 2 = Outflow
+    const inAmt   = parseAmt(row[3]);        // col 3 = Inflow
+
+    if (inAmt !== null && inAmt > 0)
+      inflows.push({ amt: inAmt, date, summary, isNomina: false });
+    if (outAmt !== null && outAmt > 0)
+      outflows.push({ amt: outAmt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
+  }
+
+  const nominaCount = outflows.filter(v => v.isNomina).length;
+  // Validation totals: sum all inflow/outflow amounts in this file (no separate control row)
+  const totalInflow  = Math.round(inflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const totalOutflow = Math.round(outflows.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  log(`BBVA Bank: ${inflows.length} inflow, ${outflows.length} outflow rows (${nominaCount} Nómina) | Control totals — in: ${totalInflow}, out: ${totalOutflow}`);
+  return { inflows, outflows, totalInflow, totalOutflow };
+}
+
+// ── Merge two bank result sets ────────────────────────────────────────────────
+function mergeBankData(a, b) {
+  const addN = (x, y) => (x === null && y === null) ? null : Math.round(((x || 0) + (y || 0)) * 100) / 100;
+  return {
+    inflows:       [...a.inflows,  ...b.inflows],
+    outflows:      [...a.outflows, ...b.outflows],
+    totalInflow:   addN(a.totalInflow,  b.totalInflow),
+    totalOutflow:  addN(a.totalOutflow, b.totalOutflow),
+  };
+}
+
+function parseAmt(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).replace(/,/g, '').trim();
+  // Strict check: must be a pure number (digits, optional leading minus, optional decimal point).
+  // Rejects strings like '2026-04--2026-04' or column header text that parseFloat partially parses.
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : Math.round(n * 100) / 100;
+}
+
+// ── Reconciliation logic ──────────────────────────────────────────────────────
+function reconcile(nccList, bankList, side) {
+  // each ncc item: { amt (OC, used for matching), amtFC?, currency?, summary }
+  // each bank item: { amt, summary, isNomina? }
+  const ncc  = [...nccList].sort((a,b) => a.amt - b.amt);
+  const bank = [...bankList].sort((a,b) => a.amt - b.amt);
+  const result = [];
+  let i = 0, j = 0;
+  const nccRow  = (nv, bv, note) => ({
+    ncc: nv ? nv.amt : null, nccSum: nv ? nv.summary : '',
+    nccExRate: nv ? (nv.exRate ?? null) : null,
+    nccAmtFC: nv ? (nv.amtFC ?? null) : null,
+    nccCurrency: nv ? (nv.currency ?? '') : '',
+    bank: bv ? bv.amt : null, bankDate: bv ? (bv.date || '') : '', bankSum: bv ? bv.summary : '',
+    isNomina: bv ? !!bv.isNomina : false,
+    note
+  });
+  while (i < ncc.length || j < bank.length) {
+    const nv = i < ncc.length  ? ncc[i]  : null;
+    const bv = j < bank.length ? bank[j] : null;
+    if (nv === null) {
+      result.push(nccRow(null, bv, `Bank ${side} but not yet in NCC`)); j++;
+    } else if (bv === null) {
+      result.push(nccRow(nv, null, `NCC ${side} but not yet in Bank`)); i++;
+    } else if (nv.amt === bv.amt) {
+      result.push(nccRow(nv, bv, '')); i++; j++;
+    } else if (nv.amt > bv.amt) {
+      result.push(nccRow(null, bv, `Bank ${side} but not yet in NCC`)); j++;
+    } else {
+      result.push(nccRow(nv, null, `NCC ${side} but not yet in Bank`)); i++;
+    }
+  }
+  return result;
+}
+
+// ── Main run ──────────────────────────────────────────────────────────────────
+async function run() {
+  clearLog(); clearError();
+  document.getElementById('results').classList.remove('visible');
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  try {
+    log('Reading NCC Bank Journal...', 'info');
+    const nccBuf  = await readFile(nccFile);
+    const nccData = parseNCC(nccBuf);
+
+    let icbcData = null, sanData = null, bbvaData = null, bankData = null;
+    if (bankFileIcbc) {
+      log('Reading ICBC Bank Statement...', 'info');
+      icbcData = parseBankIcbc(await readFile(bankFileIcbc));
+      bankData = icbcData;
+    } else if (bankFileSan) {
+      log('Reading Santander Bank Statement...', 'info');
+      sanData  = parseBankSantander(await readFile(bankFileSan));
+      bankData = sanData;
+    } else if (bankFileBbva) {
+      log('Reading BBVA Bank Statement...', 'info');
+      bbvaData = parseBankBbva(await readFile(bankFileBbva));
+      bankData = bbvaData;
+    } else {
+      throw new Error('Please upload the ICBC, Santander, or BBVA Bank Statement.');
+    }
+
+    log('Running reconciliation...', 'info');
+    bankOutflowsAll = bankData.outflows;
+    nccOutflowsAll  = nccData.outflows;
+    const includeNomina = document.getElementById('nomina-check').checked;
+    const nominaCount = bankOutflowsAll.filter(v => v.isNomina).length;
+    const bankOutFiltered = includeNomina ? bankOutflowsAll : bankOutflowsAll.filter(v => !v.isNomina);
+    inflowData  = reconcile(nccData.inflows, bankData.inflows,  'Inflow');
+    outflowData = reconcile(nccOutflowsAll,  bankOutFiltered,   'Outflow');
+    document.querySelector('.option-desc').textContent = includeNomina
+      ? `Bank Outflow includes "Nomina/Payroll" entries (${nominaCount} total)`
+      : `Bank Outflow excludes "Nomina/Payroll" entries (${nominaCount} total)`;
+
+    const inMatched  = inflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+    const inMissing  = inflowData.filter(r => r.note !== '').length;
+    const outMatched = outflowData.filter(r => r.ncc !== null && r.bank !== null).length;
+    const outMissing = outflowData.filter(r => r.note !== '').length;
+
+    log(`Inflow: ${inMatched} matched, ${inMissing} discrepancies`);
+    log(`Outflow: ${outMatched} matched, ${outMissing} discrepancies`);
+    log('Done ✓', 'ok');
+
+    renderStats(inMatched, inMissing, outMatched, outMissing);
+    renderValidation(nccData, icbcData, sanData, bbvaData);  // only one bank is non-null
+    renderTable('inflow');
+    document.getElementById('results').classList.add('visible');
+
+  } catch(e) {
+    showError(e.message || String(e));
+    log('Error: ' + (e.message || e), 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function readFile(f) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    // .slice() returns a fresh copy so the ArrayBuffer is never detached
+    // between runs — prevents SheetJS zlib "Bad uncompressed size" errors
+    r.onload = e => res(e.target.result.slice(0));
+    r.onerror = () => rej(new Error('Failed to read ' + f.name));
+    r.readAsArrayBuffer(f);
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function fmt(v) {
+  if (v === null || v === undefined) return '';
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+
+// ── Render validation totals ──────────────────────────────────────────────────
+function renderValidation(nccData, icbcData, sanData, bbvaData) {
+  const sec = document.getElementById('validation-section');
+  if (!sec) return;
+
+  const fmtV = v => v === null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sumAmt = arr => Math.round(arr.reduce((s, r) => s + r.amt, 0) * 100) / 100;
+  const matchOk = (parsed, ctrl) => ctrl === null ? null : Math.abs(parsed - ctrl) < 0.015;
+
+  const badge = ok => ok === null
+    ? `<span class="vmatch-badge" style="background:var(--paper2);color:var(--ink3);border:1px solid var(--border)">N/A</span>`
+    : ok
+      ? `<span class="vmatch-badge ok">✓ Match</span>`
+      : `<span class="vmatch-badge warn">⚠ Mismatch</span>`;
+
+  // Each vrow shows: parsed sum (from individual rows) vs control total (from summary row)
+  const vrow = (label, parsed, ctrl) => {
+    const ok = matchOk(parsed, ctrl);
+    return `
+    <div class="vrow">
+      <span class="vrow-label">${label}</span>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px">
+        <span class="vrow-val">${fmtV(parsed)}<span style="font-size:9px;color:var(--ink3);margin-left:4px">parsed</span></span>
+        ${ctrl !== null ? `<span class="vrow-val" style="font-size:10px;color:var(--ink3)">${fmtV(ctrl)}<span style="font-size:9px;margin-left:4px">control</span></span>` : ''}
+      </span>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:2px 0 6px">${badge(ok)}</div>`;
+  };
+
+  const buildCard = (title, dotColor, data) => {
+    const parsedIn  = sumAmt(data.inflows);
+    const parsedOut = sumAmt(data.outflows);
+    const ctrlIn    = data.totalInflow  ?? null;
+    const ctrlOut   = data.totalOutflow ?? null;
+    return `
+    <div class="vcard">
+      <div class="vcard-title">
+        <span class="vcard-dot" style="background:${dotColor}"></span>${title}
+      </div>
+      ${vrow('Inflow',  parsedIn,  ctrlIn)}
+      ${vrow('Outflow', parsedOut, ctrlOut)}
+    </div>`;
+  };
+
+  // NCC: control = Current Month Total (sum of all months)
+  // ICBC: control = 合计金额 row
+  // Santander: no separate control row — null out totals so badge shows N/A
+  const icbcCard = icbcData
+    ? buildCard('ICBC Bank Statement', '#4a90d9', icbcData)
+    : '';
+  const sanCardClean = sanData
+    ? buildCard('Santander Statement', '#c0392b', { ...sanData, totalInflow: null, totalOutflow: null })
+    : '';
+  const bbvaCardClean = bbvaData
+    ? buildCard('BBVA Statement', '#1565c0', { ...bbvaData, totalInflow: null, totalOutflow: null })
+    : '';
+  const bankCard = icbcCard || sanCardClean || bbvaCardClean;
+
+  sec.innerHTML = `
+    <div class="validation-title">Data integrity check</div>
+    <div class="validation-grid">
+      ${buildCard('NCC Bank Journal', 'var(--accent)', nccData)}
+      ${bankCard}
+    </div>`;
+}
+
+function renderStats(inM, inD, outM, outD) {
+  const row = document.getElementById('stats-row');
+  row.innerHTML = `
+    <div class="stat-card"><span class="stat-num ok">${inM}</span><span class="stat-label">Inflow Matched</span></div>
+    <div class="stat-card ${inD>0?'has-warn':''}"><span class="stat-num ${inD>0?'warn':'ok'}">${inD}</span><span class="stat-label">Inflow Gaps</span></div>
+    <div class="stat-card"><span class="stat-num ok">${outM}</span><span class="stat-label">Outflow Matched</span></div>
+    <div class="stat-card ${outD>0?'has-warn':''}"><span class="stat-num ${outD>0?'warn':'ok'}">${outD}</span><span class="stat-label">Outflow Gaps</span></div>
+  `;
+}
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(tab);
+}
+
+function renderTable(tab) {
+  const data = tab === 'inflow' ? inflowData : outflowData;
+  const colA = tab === 'inflow' ? 'NCC Inflow' : 'NCC Outflow';
+  const colB = tab === 'inflow' ? 'Bank Inflow' : 'Bank Outflow';
+
+  // Check whether any NCC row has FC data (new format with OC/FC split)
+  const hasFC = data.some(r => r.nccAmtFC !== undefined && r.nccAmtFC !== null && r.nccCurrency);
+  const hasExRate = data.some(r => r.nccExRate !== null && r.nccExRate !== undefined);
+
+  document.getElementById('tbl-head').innerHTML = hasExRate
+    ? `<tr><th>${colA}</th><th>FC Ex. Rate</th><th>Summary</th><th>${colB}</th><th>Date</th><th>Summary</th><th>Note</th></tr>`
+    : `<tr><th>${colA}</th><th>Summary</th><th>${colB}</th><th>Date</th><th>Summary</th><th>Note</th></tr>`;
+
+  let sumA = 0, sumB = 0;
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+
+  data.forEach(row => {
+    const matched = row.ncc !== null && row.bank !== null;
+    const cls = matched ? 'matched' : (row.ncc === null ? 'unmatched-b' : 'unmatched-a');
+    const tr = document.createElement('tr');
+    tr.className = cls;
+    const nominaBadge = row.isNomina ? '<span class="nomina-badge">NÓMINA/PAYROLL</span>' : '';
+    const blankNcc  = row.ncc  === null;
+    const blankBank = row.bank === null;
+
+    const exRateCell = hasExRate
+      ? `<td class="${blankNcc ? 'blank-cell' : ''}" style="font-size:11px;color:var(--ink3);text-align:right;font-variant-numeric:tabular-nums">${(!blankNcc && row.nccExRate != null) ? row.nccExRate.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:10}) : ''}</td>`
+      : '';
+    tr.innerHTML = `
+      <td class="td-num ${blankNcc ? 'blank-cell' : ''}">${!blankNcc ? fmt(row.ncc) : '—'}</td>
+      ${exRateCell}
+      <td class="${blankNcc ? 'blank-cell' : ''}">${row.nccSum || ''}</td>
+      <td class="td-num ${blankBank ? 'blank-cell' : ''}">${!blankBank ? fmt(row.bank) : '—'}</td>
+      <td class="${blankBank ? 'blank-cell' : ''}" style="font-size:11px;color:var(--ink3)">${row.bankDate || ''}</td>
+      <td class="${blankBank ? 'blank-cell' : ''}">${row.bankSum || ''}${nominaBadge}</td>
+      <td class="note-text">${row.note || ''}</td>`;
+    tbody.appendChild(tr);
+    if (row.ncc  !== null) sumA += row.ncc;
+    if (row.bank !== null) sumB += row.bank;
+  });
+
+  document.getElementById('tbl-foot').innerHTML = `
+    <tr>
+      <td class="td-num"><strong>${fmt(sumA)}</strong></td>
+      ${hasExRate ? '<td></td>' : ''}
+      <td></td>
+      <td class="td-num"><strong>${fmt(sumB)}</strong></td>
+      <td></td>
+      <td></td>
+      <td><strong>Total</strong></td>
+    </tr>`;
+}
+
+// ── Download XLSX ─────────────────────────────────────────────────────────────
+function downloadXlsx() {
+  const wb = XLSX.utils.book_new();
+  function buildSheet(data, colA, colB) {
+    const hasER = data.some(r => r.nccExRate !== null && r.nccExRate !== undefined);
+    const rows = hasER
+      ? [[colA, 'FC Ex. Rate', 'Summary', colB, 'Date', 'Summary', 'Note']]
+      : [[colA, 'Summary', colB, 'Date', 'Summary', 'Note']];
+    let sumA = 0, sumB = 0;
+    data.forEach(r => {
+      rows.push(hasER
+        ? [r.ncc ?? '', r.nccExRate ?? '', r.nccSum || '', r.bank ?? '', r.bankDate || '', r.bankSum || '', r.note || '']
+        : [r.ncc ?? '', r.nccSum || '', r.bank ?? '', r.bankDate || '', r.bankSum || '', r.note || '']);
+      if (r.ncc  !== null) sumA += r.ncc;
+      if (r.bank !== null) sumB += r.bank;
+    });
+    rows.push(hasER
+      ? [sumA, '', '', sumB, '', '', 'Total']
+      : [sumA, '', sumB, '', '', 'Total']);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = hasER
+      ? [{ wch: 16 }, { wch: 12 }, { wch: 42 }, { wch: 16 }, { wch: 13 }, { wch: 42 }, { wch: 38 }]
+      : [{ wch: 16 }, { wch: 42 }, { wch: 16 }, { wch: 13 }, { wch: 42 }, { wch: 38 }];
+    return ws;
+  }
+
+  XLSX.utils.book_append_sheet(wb, buildSheet(inflowData,  'NCC Inflow',  'Bank Inflow'),  'Inflow Reconciliation');
+  XLSX.utils.book_append_sheet(wb, buildSheet(outflowData, 'NCC Outflow', 'Bank Outflow'), 'Outflow Reconciliation');
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `Bank_Reconciliation_${stamp}.xlsx`);
+}
+</script>
+</body>
+</html>
