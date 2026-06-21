@@ -1428,6 +1428,7 @@ main{ padding:18px 0 64px }
         <div class="table-wrap">
           <table id="diot-table">
             <thead><tr>
+              <th>Material</th>
               <th class="td-num">IVA (NCC)</th><th>IVA Rate (NCC)</th><th>Emisor RFC</th><th>UUID</th><th>Estatus</th>
               <th class="td-num">Base IVA 16</th><th class="td-num">Base IVA 8</th><th class="td-num">Base IVA 0</th>
               <th class="td-num">Base IVA Exento</th><th class="td-num">Descuento</th><th class="td-num">IVA</th>
@@ -1444,9 +1445,9 @@ main{ padding:18px 0 64px }
       <h3>How it works</h3>
       <ul class="step-list">
         <li><div class="step-num">1</div><span>Upload all three workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong>, <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, and the <strong>Received CFDI</strong> file. Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
-        <li><div class="step-num">2</div><span>The tool reads the itemized <code>bodys</code> detail table from each NCC file. A row is <strong>kept</strong> when <code>IVA (NCC) &ne; 0</code>, <em>or</em> when <code>IVA (NCC) = 0</code> <strong>and</strong> its <code>Material</code> is not <code>Non-Deductible Expense</code>. Also excluded are salary / payroll-tax rows &mdash; <code>Material</code> containing <code>Fixed Salary</code> (incl. <code>Net Salary</code>), <code>ISN</code>, or <code>IMSS Expense</code>. Rows are kept even when the UUID is a placeholder, a foreign/Pedimento number, or blank.</span></li>
-        <li><div class="step-num">3</div><span>Each kept row is enriched from the CFDI file: when the UUID is a well-formed folio <strong>and</strong> is found in the CFDI, every other field (<code>Emisor RFC</code>, <code>Estatus</code>, <code>Base IVA 16/8/0/Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>) is taken from the CFDI, and a <code>Note</code> compares <code>IVA (NCC)</code> against the CFDI <code>IVA</code> (equal &rarr; blank; greater &rarr; <em>Wrong, please check AP/PY Doc</em> in red; less &rarr; <em>reimbursed below the invoice</em>). Otherwise the <code>UUID</code> column shows the value recorded in the NCC file <strong>together with its DocNo. and Material</strong> (e.g. <code>26 16 3167 6015444 | PY-MX-2605-00183 | Custom Clearance - Service</code>) so the line stays traceable, and every CFDI-sourced field is left blank.</span></li>
-        <li><div class="step-num">4</div><span>Review the on-screen report &mdash; non-<code>Vigente</code> rows are tinted and <code>Note</code> warnings are highlighted &mdash; then click <strong>Export to Excel</strong> to export the report columns in sequence: <code>IVA (NCC)</code>, <code>IVA Rate (NCC)</code>, <code>Emisor RFC</code>, <code>UUID</code>, <code>Estatus</code>, <code>Base IVA 16</code>, <code>Base IVA 8</code>, <code>Base IVA 0</code>, <code>Base IVA Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>, <code>Note</code>.</span></li>
+        <li><div class="step-num">2</div><span>The tool reads the itemized <code>bodys</code> detail table from each NCC file. A row is <strong>kept</strong> when <code>IVA (NCC) &ne; 0</code>, <em>or</em> when <code>IVA (NCC) = 0</code> <strong>and</strong> its <code>Material</code> is not <code>Non-Deductible Expense</code>. Also excluded are salary / payroll-tax rows &mdash; <code>Material</code> containing <code>Fixed Salary</code> (incl. <code>Net Salary</code>), <code>ISN Expense</code>, or <code>IMSS Expense</code>. A <code>Material = MX Import VAT</code> row is <strong>always kept</strong> regardless of those rules; its <code>IVA (NCC)</code> is taken from <code>AmtIncl.VAT(OC)</code> and its <code>Emisor RFC</code> is set to <code>Mexico Customs</code>. Rows are kept even when the UUID is a placeholder, a foreign/Pedimento number, or blank.</span></li>
+        <li><div class="step-num">3</div><span>Each kept row is enriched from the CFDI file: when the UUID is a well-formed folio <strong>and</strong> is found in the CFDI, every other field (<code>Emisor RFC</code>, <code>Estatus</code>, <code>Base IVA 16/8/0/Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>) is taken from the CFDI, and a <code>Note</code> compares <code>IVA (NCC)</code> against the CFDI <code>IVA</code> (equal &rarr; blank; greater &rarr; <em>Wrong, please check AP/PY Doc</em> in red; less &rarr; <em>reimbursed below the invoice</em>). Otherwise the <code>UUID</code> column shows the value recorded in the NCC file <strong>together with its DocNo.</strong> (e.g. <code>26 16 3167 6015444 | PY-MX-2605-00183</code>) so the line stays traceable, and every CFDI-sourced field is left blank. The <code>Material</code> appears in its own dedicated first column.</span></li>
+        <li><div class="step-num">4</div><span>Review the on-screen report &mdash; non-<code>Vigente</code> rows are tinted and <code>Note</code> warnings are highlighted &mdash; then click <strong>Export to Excel</strong> to export the report columns in sequence: <code>Material</code>, <code>IVA (NCC)</code>, <code>IVA Rate (NCC)</code>, <code>Emisor RFC</code>, <code>UUID</code>, <code>Estatus</code>, <code>Base IVA 16</code>, <code>Base IVA 8</code>, <code>Base IVA 0</code>, <code>Base IVA Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>, <code>Note</code>.</span></li>
       </ul>
     </div>
 
@@ -3170,12 +3171,14 @@ function diotExtractNcc(rows, srcLabel){
   const ui=('uuid' in map)?map['uuid']:-1;
   const vi=('vatamt(fc)' in map)?map['vatamt(fc)']:-1;
   const vc=('vatcode' in map)?map['vatcode']:-1;      // '* VATCode' -> IVA Rate (NCC)
-  const mc=('material' in map)?map['material']:-1;     // Material -> used by the report filter
+  const mc=('material' in map)?map['material']:-1;     // Material -> shown + used by the report filter
+  const ac=('amtincl.vat(oc)' in map)?map['amtincl.vat(oc)']:(('amtinclvat(oc)' in map)?map['amtinclvat(oc)']:-1);  // AmtIncl.VAT(OC) -> MX Import VAT amount
   if(ui<0 || vi<0) throw new Error(srcLabel+': the detail table is missing a UUID or VATAmt(FC) column.');
   const out=[];
   for(let i=bodyHdr+1;i<rows.length;i++){
     const r=rows[i]; if(!r || !isSeq(r[0])) continue;   // skip subtotal / non-line rows
     out.push({ uuidRaw:r[ui], vat:parseNum(r[vi])||0,
+               amtIncl: ac>=0 ? (parseNum(r[ac])||0) : 0,
                vatcode: vc>=0 ? String(r[vc]==null?'':r[vc]).trim() : '',
                material: mc>=0 ? String(r[mc]==null?'':r[mc]).trim() : '',
                docno: docBySeq[seqOf(r[0])]||'',
@@ -3237,9 +3240,9 @@ function diotGenerate(){
     const rawShown=(d.uuidRaw==null||String(d.uuidRaw).trim()==='') ? '(blank)' : String(d.uuidRaw).trim();
     const key=valid ? ('U:'+nu) : ('L:'+(lineSeq++));   // valid -> by folio; otherwise -> per line
     let e=agg.get(key);
-    if(!e){ e={valid, nu:valid?nu:'', rawUuid:rawShown, vat:0, lines:0,
+    if(!e){ e={valid, nu:valid?nu:'', rawUuid:rawShown, vat:0, amtIncl:0, lines:0,
                srcs:new Set(), vatcodes:new Set(), materials:new Set(), docnos:new Set()}; agg.set(key, e); }
-    e.vat+=d.vat; e.lines++; e.srcs.add(d.src);
+    e.vat+=d.vat; e.amtIncl+=d.amtIncl; e.lines++; e.srcs.add(d.src);
     if(d.vatcode) e.vatcodes.add(d.vatcode);
     if(d.material) e.materials.add(d.material);
     if(d.docno) e.docnos.add(d.docno);
@@ -3250,20 +3253,29 @@ function diotGenerate(){
   const NON_DED='non-deductible expense';
   // Salary / payroll-tax materials excluded from the DIOT report:
   //   - any 'Fixed Salary …' (e.g. 'Fixed Salary - Net Salary')
-  //   - any 'ISN …' (payroll tax) · any 'IMSS Expense'
+  //   - 'ISN Expense' (payroll tax) · any 'IMSS Expense'
   const isExcludedMaterial=(m)=>{
     const ml=m.toLowerCase();
-    return ml.includes('fixed salary') || ml.includes('isn') || ml.includes('imss expense');
+    return ml.includes('fixed salary') || ml.includes('isn expense') || ml.includes('imss expense');
   };
   const report=[], flags=[];
   let valid=0, notVigente=0, unmatched=0, filtered=0;
   for(const e of agg.values()){
     const mats=[...e.materials];
-    // Drop (a): IVA (NCC) = 0 AND every contributing line is Non-Deductible Expense.
-    const allNonDed = mats.length>0 && mats.every(m=>m.toLowerCase().includes(NON_DED));
-    if(cents(e.vat)===0 && allNonDed){ filtered++; continue; }
-    // Drop (b): every contributing line is an excluded salary / payroll-tax material.
-    if(mats.length>0 && mats.every(isExcludedMaterial)){ filtered++; continue; }
+    const matLabel=mats.join(', ');
+    // MX Import VAT (customs / Pedimento): kept regardless of the drop rules below. Its IVA (NCC)
+    // is taken from AmtIncl.VAT(OC) (not VATAmt(FC)), and the Emisor RFC is forced to "Mexico Customs".
+    const isImportVat = mats.some(m=>m.toLowerCase().includes('mx import vat'));
+    if(!isImportVat){
+      // Drop (a): IVA (NCC) = 0 AND every contributing line is Non-Deductible Expense.
+      const allNonDed = mats.length>0 && mats.every(m=>m.toLowerCase().includes(NON_DED));
+      if(cents(e.vat)===0 && allNonDed){ filtered++; continue; }
+      // Drop (b): every contributing line is an excluded salary / payroll-tax material.
+      if(mats.length>0 && mats.every(isExcludedMaterial)){ filtered++; continue; }
+    }
+
+    // IVA (NCC) shown: AmtIncl.VAT(OC) for MX Import VAT, otherwise the summed VATAmt(FC).
+    const shownVat = isImportVat ? e.amtIncl : e.vat;
 
     // Enrich only when the UUID is well-formed AND present in the CFDI file.
     const c = e.valid ? (cfdi.get(e.nu)||null) : null;
@@ -3276,20 +3288,21 @@ function diotGenerate(){
       descu=c.descu; iva=c.iva; ivaRet=c.ivaRet; isrRet=c.isrRet;
       if(estatus.toLowerCase()==='vigente'){ state='valid'; valid++; }
       else { state='invalid'; notVigente++; }
-      const a=cents(e.vat), b=cents(c.iva);
+      const a=cents(shownVat), b=cents(c.iva);
       if(a>b){ note='Wrong, please check AP/PY Doc'; noteWarn=true; }
       else if(a<b){ note='reimbursed below the invoice'; }
     } else {
       // no CFDI match (non-standard UUID, or folio not in the file) -> the UUID column shows the
-      // NCC value together with its DocNo and Material; every CFDI-sourced field stays blank.
+      // NCC value together with its DocNo; the Material has its own dedicated column. CFDI fields stay blank.
       state='unmatched'; unmatched++;
       const docStr=[...e.docnos].filter(Boolean).join(', ');
-      const matStr=mats.join(', ');
-      uuidShown = [e.rawUuid, docStr, matStr].filter(Boolean).join(' | ');
+      uuidShown = [e.rawUuid, docStr].filter(Boolean).join(' | ');
     }
+    if(isImportVat) rfc='Mexico Customs';   // forced issuer for customs import VAT
 
     report.push({
-      vat:e.vat, vatcode:[...e.vatcodes].join(', '),
+      material:matLabel,
+      vat:shownVat, vatcode:[...e.vatcodes].join(', '),
       rfc, uuid:uuidShown, estatus, state, lines:e.lines, src:[...e.srcs].join(' + '),
       base16, base8, base0, baseEx, descu, iva, ivaRet, isrRet, note, noteWarn
     });
@@ -3351,6 +3364,7 @@ function diotRenderTable(){
       ? '<td class="'+(r.noteWarn?'note-warn':'note-info')+'">'+r.note+'</td>'
       : '<td></td>';
     parts[i]='<tr class="'+(r.state==='invalid'?'row-flag':'')+'">'+
+      '<td>'+(r.material||'<span class="td-dash">\u2014</span>')+'</td>'+
       '<td class="td-num">'+diotMoney(r.vat)+'</td>'+
       '<td>'+(r.vatcode||'<span class="td-dash">\u2014</span>')+'</td>'+
       '<td class="td-rfc">'+(r.rfc||'\u2014')+'</td>'+
@@ -3368,7 +3382,7 @@ function diotRenderTable(){
   }
   document.getElementById('diot-body').innerHTML=parts.join('');
   document.getElementById('diot-foot').innerHTML=
-    '<tr><td class="td-num">'+diotMoney(diotStats.totalVat)+'</td>'+
+    '<tr><td></td><td class="td-num">'+diotMoney(diotStats.totalVat)+'</td>'+
     '<td colspan="13"><strong>Total \u00b7 '+diotStats.rows.toLocaleString('en-US')+' rows</strong></td></tr>';
 }
 
@@ -3401,17 +3415,17 @@ function diotRun(){
 function diotDownloadXlsx(){
   if(!diotReport.length) return;
   const r2=(v)=> v==null ? '' : Math.round(v*100)/100;
-  const aoa=[['IVA (NCC)','IVA Rate (NCC)','Emisor RFC','UUID','Estatus',
+  const aoa=[['Material','IVA (NCC)','IVA Rate (NCC)','Emisor RFC','UUID','Estatus',
               'Base IVA 16','Base IVA 8','Base IVA 0','Base IVA Exento','Descuento','IVA',
               'IVA Retenido','ISR Retenido','Note']];
   for(const r of diotReport){
-    aoa.push([ Math.round(r.vat*100)/100, r.vatcode||'', r.rfc||'', r.uuid,
+    aoa.push([ r.material||'', Math.round(r.vat*100)/100, r.vatcode||'', r.rfc||'', r.uuid,
                r.estatus||'',
                r2(r.base16), r2(r.base8), r2(r.base0), r2(r.baseEx),
                r2(r.descu), r2(r.iva), r2(r.ivaRet), r2(r.isrRet), r.note||'' ]);
   }
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:14},{wch:16},{wch:18},{wch:40},{wch:14},
+  ws['!cols']=[{wch:26},{wch:14},{wch:16},{wch:18},{wch:40},{wch:14},
                {wch:13},{wch:12},{wch:12},{wch:15},{wch:12},{wch:12},
                {wch:13},{wch:13},{wch:28}];
   const wb=XLSX.utils.book_new();
