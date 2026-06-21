@@ -1,4 +1,4 @@
-# NCC × CFDI Reconciliation Suite
+# Reconciliation Suite
 
 A single, self-contained HTML tool (no install, no server — open `reconciliation_suite.html` in a browser) for month-end reconciliation. It cross-checks NCC accounting documents against the official CFDI invoice file, reconciles the NCC bank journal against the bank statement, and assembles the DIOT compliance report. Everything runs locally in the browser; uploaded workbooks never leave the machine.
 
