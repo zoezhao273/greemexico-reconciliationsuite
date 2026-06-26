@@ -1187,7 +1187,7 @@ main{ padding:18px 0 64px }
           <p>NCC <code>AmtIncl.VAT(OC)</code> must equal CFDI <code>Total Original XML</code> to the cent (no tolerance). A split-by-expense-type invoice is summed within the record first. If booked <i>below</i> the invoice it reads <b>"Please verify the bank payment amount"</b>; if <i>above</i>, "does not match".</p></div>
         <div class="card check"><div class="num">Check 6</div><h4>VAT amount</h4>
           <p>Default: NCC <code>VATAmt(FC)</code> must equal CFDI <code>IVA</code> to the cent (summed per invoice within a record). Exception: for <code>Travel – Meals</code>, VAT equal to <b>8.5%</b> of the CFDI IVA (±0.01) is accepted — SAT allows only 8.5% deductible for meals within 50 km; if that pattern matches but <code>Material ≠ Travel – Meals</code> it still flags with <code>Meal ≤ 50 KM but incorrect material</code>.</p>
-          <p style="margin-top:6px"><b>Fuel lines</b> (any line whose <code>Material</code> contains <code>Fuel</code>) use the prorated gas rule instead: <code>VATAmt(FC)</code> must equal <code>AmtIncl.VAT(OC) &times; IVA &divide; Total Original XML</code>. If it matches, the line passes; otherwise it reads <b>"Correct Gas VAT = …"</b> with the computed amount &mdash; the <b>CFDI</b> column shows the <code>IVA</code> and the <b>NCC</b> column shows the <code>AmtIncl.VAT(OC)</code>. Skipped for <code>PY</code> non-MXN lines (settled at the payment-date FX rate).</p></div>
+          <p style="margin-top:6px"><b>Fuel lines</b> (any line whose <code>Material</code> contains <code>Fuel</code>) use the prorated gas rule instead: <code>VATAmt(FC)</code> must equal <code>AmtIncl.VAT(OC) &times; IVA &divide; Total Original XML</code>. If it matches, the line passes; otherwise it reads <b>"Correct Gas VAT = …"</b> with the computed amount &mdash; the <b>CFDI</b> column shows the <code>IVA</code> and the <b>NCC</b> column shows the booked <code>VATAmt(FC)</code>. Skipped for <code>PY</code> non-MXN lines (settled at the payment-date FX rate).</p></div>
         <div class="card check"><div class="num">Check 7</div><h4>Exchange rate</h4>
           <p>Only when NCC <code>Currency</code> is not <code>MXN</code>: NCC <code>Ex.Rate</code> must equal CFDI <code>Tipo Cambio</code>. Skipped for <code>PY</code> payment documents, whose foreign-currency lines use the payment-date rate rather than the invoice rate.</p></div>
         <div class="card check"><div class="num">Check 8</div><h4>Withholding tax</h4>
@@ -1901,7 +1901,7 @@ function analyze(){
         if(cents(sumVat)!==cents(expected))
           push({...base,check:'iva',
                 reason:'Correct Gas VAT = '+money(expected),
-                cfdi:money(c.iva), ncc:money(sumAmt)});
+                cfdi:money(c.iva), ncc:money(sumVat)});
       } else if(cents(sumVat)!==cents(c.iva)){
         const below = cents(c.iva)>cents(sumVat);
         push({...base,check:'iva',
