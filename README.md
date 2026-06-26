@@ -1,4 +1,4 @@
-# Reconciliation Suite
+# NCC × CFDI Reconciliation Suite
 
 A single, self-contained HTML tool (no install, no server — open `reconciliation_suite.html` in a browser) for month-end reconciliation. It cross-checks NCC accounting documents against the official CFDI invoice file, reconciles the NCC bank journal against the bank statement, and assembles the DIOT compliance report. Everything runs locally in the browser; uploaded workbooks never leave the machine.
 
@@ -38,7 +38,7 @@ The first detail column is the line sequence number; each detail line is tied ba
 | Conceptos Descripción | `Conceptos Descripción` / `Descripción` / `Concepto` | Check 4 |
 | Emisor Nombre | `Emisor Nombre` / `Nombre Emisor` / `Nombre del Emisor` | Check 4 (gasoline detection + CFDI display) |
 | Método Pago | `Método Pago` / `Metodo Pago` | Duplicate-vs-amortized signal |
-| Emisor RFC | `Emisor RFC` | DIOT report |
+| Emisor RFC | `Emisor RFC` | Check 4 (gas-station issuer detection), DIOT report |
 
 > Note: **Forma Pago** (payment *form*: `01` = Efectivo / cash, `03` = transfer, …) and **Método Pago** (`PUE` / `PPD`) are two distinct fields. Check 4 (gas) and Check 9 (cash) read Forma Pago.
 
@@ -56,7 +56,7 @@ Reconciliation runs per detail line and per `(record × UUID)` group. A single i
 
 **Check 3 — Posting month.** NCC `DocDate` month must equal CFDI `Emisión` month. Runs only when the record is a `DocNo` starting with `AP` *and* `A/PType = CA Reimbursement`, or when the supplier contains `PETTY CASH`.
 
-**Check 4 — Gas material.** Runs when the invoice is gasoline — CFDI `Conceptos Descripción` contains `gasolina` **or** CFDI `Emisor Nombre` contains `GASOLINEROS` (both case-insensitive). The required `Material` depends on the payment form, and the **NCC (recorded)** column is left blank in both cases:
+**Check 4 — Gas material.** Runs when the invoice is gasoline — CFDI `Conceptos Descripción` contains `gasolina`, **or** CFDI `Emisor Nombre` contains `GASOLINEROS`, **or** the CFDI `Emisor RFC` is a known gas-station issuer (`SOR701112L98` / `MES151124794`). The required `Material` depends on the payment form, and the **NCC (recorded)** column is left blank in both cases:
 
 - **Forma de Pago ≠ 01** (not cash) — `Material` must be `Fuel - Private Vehicle` or `Fuel - Operational Vehicle`. Otherwise flagged "For gasolina, Material = Fuel & Supplier = Employee related if it's for private cars"; the **CFDI (correct)** column shows the `Emisor Nombre`.
 - **Forma de Pago = 01** (cash) — `Material` must be `Non-Deductible Expense` (SAT disallows the deduction). Otherwise flagged "For cash-paid gasolina, Material = Non-Deductible Expense & Supplier = Employee related if it's for private cars"; the **CFDI (correct)** column shows the `Forma de Pago` value.
