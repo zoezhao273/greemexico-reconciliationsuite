@@ -263,14 +263,6 @@
   .wl-actions{ display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap }
   .wl-count{ margin-left:auto; font-size:12px; color:var(--mute) }
   .wl-count b{ color:var(--teal) }
-  .wl-adv{ margin-top:14px; border-top:1px solid var(--line); padding-top:12px }
-  .wl-adv summary{ cursor:pointer; font-size:12px; color:var(--mute); font-weight:600; user-select:none }
-  .wl-adv summary:hover{ color:var(--teal) }
-  .wl-lbl{ display:block; margin:12px 0 5px; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em }
-  .wl-adv input{ width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px;
-    font-family:var(--mono); font-size:12px; background:var(--bg); box-sizing:border-box }
-  .wl-adv input:focus{ outline:none; border-color:var(--teal); background:#fff }
-  .wl-note{ margin:8px 0 0; font-size:11.5px; color:var(--mute); line-height:1.5 }
 
 /* ===== Suite shell: two-step nav + page switching ===== */
 main{ padding:18px 0 64px }
@@ -1096,12 +1088,6 @@ main{ padding:18px 0 64px }
           <button type="button" class="wl-btn ghost" id="wlReload">&#8635; Reload</button>
         </div>
         <div class="wl-status" id="wlStatus"></div>
-        <details class="wl-adv">
-          <summary>Cloud endpoint &amp; setup</summary>
-          <label class="wl-lbl">Google Apps Script web-app URL (shared by the team)</label>
-          <input type="text" id="wlUrl" spellcheck="false" placeholder="https://script.google.com/macros/s/&hellip;/exec">
-          <p class="wl-note">The list is stored under the key <code>uuidWhitelist</code> at this endpoint. To run your own shared store: in Google Drive create an Apps Script project, paste a small <code>doGet</code>/<code>doPost</code> key-value handler (reads return <code>{data:{&hellip;}}</code>, writes accept <code>{key,value}</code>), Deploy as a Web app with access &ldquo;Anyone&rdquo;, and paste the <code>/exec</code> URL here. Everyone using the same URL shares one whitelist.</p>
-        </details>
       </div>
     </div>
 
@@ -2205,7 +2191,7 @@ function applyWlFilter(){
 /* ---- shared cloud store (Google Apps Script web app: GET reads {data:{...}}, POST {key,value} writes) ---- */
 const WL_GS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbyUJcveDzPCze_MTPM_sv9ub1_bGTBymMSdGqopAbrnREKQmfYCayhK7jZDOXboFEpeFw/exec';
 const WL_KEY = 'uuidWhitelist';
-function wlEndpoint(){ const v=(document.getElementById('wlUrl').value||'').trim(); return v||WL_GS_URL_DEFAULT; }
+function wlEndpoint(){ return WL_GS_URL_DEFAULT; }   // fixed shared store; the editable URL field was removed
 function wlSync(state,msg){ const el=document.getElementById('wlSync'); el.className='sync-status '+state;
   const icon = state==='loading' ? '<span class="spinner"></span>' : state==='ok' ? '\u2601\uFE0F' : '\u26A0\uFE0F';
   el.innerHTML = icon+' '+msg; }
@@ -2233,7 +2219,7 @@ async function loadWhitelistFromCloud(){
     wlSync('ok','Cloud sync OK \u00b7 '+wlApprovedCount()+' approved');
   }catch(e){
     wlSync('err','Cloud unavailable \u2014 offline');
-    wlSetStatus('Couldn\u2019t reach the cloud ('+e.message+'). You can still edit locally; check the endpoint under \u201cCloud endpoint & setup\u201d.','bad');
+    wlSetStatus('Couldn\u2019t reach the cloud ('+e.message+'). You can still edit the whitelist locally; your changes just won\u2019t sync until the connection is back.','bad');
   }
 }
 async function saveWhitelistToCloud(){
@@ -2248,11 +2234,10 @@ async function saveWhitelistToCloud(){
     wlSetStatus('Saved to the shared cloud. Colleagues see it after they open the page or press Reload.','ok');
   }catch(e){
     wlSync('err','Save failed');
-    wlSetStatus('Save failed: '+e.message+'. Check the endpoint URL and that the Apps Script is deployed for \u201cAnyone\u201d.','bad');
+    wlSetStatus('Save failed: '+e.message+'. The shared store may be temporarily unreachable \u2014 try Reload, then save again.','bad');
   }finally{ btn.disabled=false; btn.innerHTML=orig; }
 }
 (function wireWhitelist(){
-  document.getElementById('wlUrl').value = WL_GS_URL_DEFAULT;
   const card=document.getElementById('wlCard');
   document.getElementById('wlToggle').addEventListener('click', ()=>{
     const open=card.classList.toggle('open');
