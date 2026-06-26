@@ -1194,7 +1194,7 @@ main{ padding:18px 0 64px }
         <div class="card check"><div class="num">Check 3</div><h4>Posting month</h4>
           <p>NCC <code>DocDate</code> month must equal CFDI <code>Emisión</code> month. Run only when the record is <code>DocNo</code> starting with <code>AP</code> <i>and</i> <code>A/PType = CA Reimbursement</code>, or when the supplier contains <code>PETTY CASH</code>.</p></div>
         <div class="card check"><div class="num">Check 4</div><h4>Gas material</h4>
-          <p>Runs when the invoice is gasoline &mdash; CFDI <code>Conceptos Descripción</code> contains <code>gasolina</code> <i>or</i> CFDI <code>Emisor Nombre</code> contains <code>GASOLINEROS</code>. The required <code>Material</code> depends on how it was paid, and the <b>NCC</b> column is left blank in both cases:</p>
+          <p>Runs when the invoice is gasoline &mdash; CFDI <code>Conceptos Descripción</code> contains <code>gasolina</code>, <i>or</i> CFDI <code>Emisor Nombre</code> contains <code>GASOLINEROS</code>, <i>or</i> the CFDI <code>Emisor RFC</code> is a known gas-station issuer (<code>SOR701112L98</code> / <code>MES151124794</code>). The required <code>Material</code> depends on how it was paid, and the <b>NCC</b> column is left blank in both cases:</p>
           <p style="margin-top:6px">&bull; <b>Forma de Pago &ne; 01</b> (not cash) &rarr; <code>Material</code> must be <code>Fuel - Private Vehicle</code> or <code>Fuel - Operational Vehicle</code>. Otherwise it reads <b>"For gasolina, Material = Fuel &amp; Supplier = Employee related if it's for private cars"</b>; the <b>CFDI</b> column shows the <code>Emisor Nombre</code>.</p>
           <p style="margin-top:6px">&bull; <b>Forma de Pago = 01</b> (cash) &rarr; <code>Material</code> must be <code>Non-Deductible Expense</code> (SAT disallows the deduction). Otherwise it reads <b>"For cash-paid gasolina, Material = Non-Deductible Expense &amp; Supplier = Employee related if it's for private cars"</b>; the <b>CFDI</b> column shows the <code>Forma de Pago</code> value.</p></div>
         <div class="card check"><div class="num">Check 5</div><h4>Total amount</h4>
@@ -1662,7 +1662,8 @@ function analyze(){
         cMetodo=col(['método pago','metodo pago','método de pago','metodo de pago']),
         cForma=col(['forma pago','forma de pago','formapago']),
         cDesc=col(['conceptos descripción','conceptos descripcion','concepto descripción','concepto descripcion','descripción','descripcion','conceptos','concepto']),
-        cNombre=col(['emisor nombre','nombre emisor','emisornombre','nombre del emisor']);   // Emisor Nombre (issuer name)
+        cNombre=col(['emisor nombre','nombre emisor','emisornombre','nombre del emisor']),   // Emisor Nombre (issuer name)
+        cRfc=col(['emisor rfc','rfc emisor','emisorrfc']);                                   // Emisor RFC (issuer tax ID)
   let cEstatus=col(['estatus','status']);
   if(cEstatus<0) cEstatus=2;   // CFDI column C ("Estatus") fallback when the header isn't matched by name
   if([cUuid,cEmis,cIva,cTotal].some(x=>x<0))
@@ -1688,6 +1689,7 @@ function analyze(){
       formaPago: cForma>=0 ? String(r[cForma]==null?'':r[cForma]).trim() : '',     // Forma Pago code (01 = Efectivo / cash)
       descripcion: cDesc>=0 ? String(r[cDesc]==null?'':r[cDesc]).trim() : '',       // Conceptos Descripción
       nombre: cNombre>=0 ? String(r[cNombre]==null?'':r[cNombre]).trim() : '',       // Emisor Nombre (issuer name)
+      rfc: cRfc>=0 ? String(r[cRfc]==null?'':r[cRfc]).trim() : '',                   // Emisor RFC (issuer tax ID)
       estatus: cEstatus>=0 ? String(r[cEstatus]==null?'':r[cEstatus]).trim() : ''   // CFDI column C (Estatus)
     };
     invCount++;
@@ -1871,7 +1873,8 @@ function analyze(){
     // "gasolina" OR the CFDI Emisor Nombre containing "GASOLINEROS".
     const descGas = String(c.descripcion||'').toLowerCase().includes('gasolina');
     const nameGas = String(c.nombre||'').toLowerCase().includes('gasolineros');
-    const isGas   = descGas || nameGas;
+    const rfcGas  = ['SOR701112L98','MES151124794'].includes(String(c.rfc||'').trim().toUpperCase());  // known gasoline-station issuer RFCs
+    const isGas   = descGas || nameGas || rfcGas;
     const matHasFuel = g.lines.some(l=>String(l.material||'').toLowerCase().includes('fuel'));
     const formaVal = String(c.formaPago||'').trim() || '(blank)';
 
