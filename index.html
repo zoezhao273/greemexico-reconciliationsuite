@@ -1055,7 +1055,7 @@ main{ padding:18px 0 64px }
       </label>
       <div class="tiecol"><span>&#8644;</span></div>
       <label class="card drop" id="dropCfdi">
-        <input type="file" accept=".xlsx,.xls,.xlsm" hidden id="fileCfdi">
+        <input type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden id="fileCfdi">
         <button type="button" class="clearbtn" id="clearCfdi" title="Remove this file">Clear</button>
         <div class="role">CFDI / SAT</div>
         <h3>Received invoices</h3>
@@ -1363,11 +1363,11 @@ main{ padding:18px 0 64px }
       </div>
 
       <div class="upload-card" id="diot-card-cfdi" ondragover="diotDrag(event,'cfdi')" ondragleave="diotUndrag('cfdi')" ondrop="diotDrop(event,'cfdi')">
-        <input type="file" id="diot-file-cfdi" accept=".xlsx" onchange="diotFileChosen('cfdi',this)">
+        <input type="file" id="diot-file-cfdi" accept=".csv" onchange="diotFileChosen('cfdi',this)">
         <button type="button" class="card-clear" id="diot-clear-cfdi" onclick="diotClearCard('cfdi',event)">Clear</button>
         <div class="upload-role">CFDI / SAT</div>
         <div class="upload-title">Received CFDI</div>
-        <div class="upload-hint">.xlsx · source of truth · Estatus / Emisor RFC / UUID</div>
+        <div class="upload-hint">.csv · source of truth · Estatus / Emisor RFC / UUID</div>
         <div class="upload-filename" id="diot-name-cfdi"></div>
       </div>
     </div>
@@ -1430,7 +1430,7 @@ main{ padding:18px 0 64px }
     <div class="instructions">
       <h3>How it works</h3>
       <ul class="step-list">
-        <li><div class="step-num">1</div><span>Upload all three workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong>, <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, and the <strong>Received CFDI</strong> file. Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
+        <li><div class="step-num">1</div><span>Upload the two NCC workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong> and <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, plus the <strong>Received CFDI</strong> file (.csv). Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
         <li><div class="step-num">2</div><span>The tool reads the itemized <code>bodys</code> detail table from each NCC file. A row is <strong>kept</strong> when <code>IVA (NCC) &ne; 0</code>, <em>or</em> when <code>IVA (NCC) = 0</code> <strong>and</strong> its <code>Material</code> is not <code>Non-Deductible Expense</code>. Also excluded are salary / payroll-tax rows &mdash; <code>Material</code> containing <code>Fixed Salary</code> (incl. <code>Net Salary</code>), <code>ISN Expense</code>, or <code>IMSS Expense</code>. A <code>Material = MX Import VAT</code> row is <strong>always kept</strong> regardless of those rules; its <code>IVA (NCC)</code> is taken from <code>AmtIncl.VAT(OC)</code> and its <code>Emisor RFC</code> is set to <code>Mexico Customs</code>. Rows are kept even when the UUID is a placeholder, a foreign/Pedimento number, or blank.</span></li>
         <li><div class="step-num">3</div><span>Each kept row is enriched from the CFDI file: when the UUID is a well-formed folio <strong>and</strong> is found in the CFDI, every other field (<code>Emisor RFC</code>, <code>Estatus</code>, <code>Base IVA 16/8/0/Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>) is taken from the CFDI, and a <code>Note</code> compares <code>IVA (NCC)</code> against the CFDI <code>IVA</code> (equal &rarr; blank; greater &rarr; <em>Wrong, please check AP/PY Doc</em> in red; less &rarr; <em>reimbursed below the invoice</em>). Otherwise the <code>UUID</code> column shows the value recorded in the NCC file <strong>together with its DocNo.</strong> (e.g. <code>26 16 3167 6015444 | PY-MX-2605-00183</code>) so the line stays traceable, and every CFDI-sourced field is left blank. The <code>Material</code> appears in its own dedicated first column.</span></li>
         <li><div class="step-num">4</div><span>Review the on-screen report &mdash; non-<code>Vigente</code> rows are tinted and <code>Note</code> warnings are highlighted &mdash; then click <strong>Export to Excel</strong> to export the report columns in sequence: <code>Material</code>, <code>IVA (NCC)</code>, <code>IVA Rate (NCC)</code>, <code>Emisor RFC</code>, <code>UUID</code>, <code>Estatus</code>, <code>Base IVA 16</code>, <code>Base IVA 8</code>, <code>Base IVA 0</code>, <code>Base IVA Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>, <code>Note</code>.</span></li>
@@ -1555,7 +1555,29 @@ function sheetToRows(ws){
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
 }
 function readWorkbook(buf){
-  return XLSX.read(buf, {type:'array', cellDates:true});
+  // buf is always a Uint8Array here. Binary workbooks (.xlsx/.xlsm = ZIP,
+  // .xls = OLE2/CFB) are self-describing and safe to hand straight to XLSX.read.
+  // Plain-text CSV has no such signature, so anything that isn't one of those
+  // two binary containers is treated as UTF-8 text instead of guessed at.
+  const isZip  = buf.length>=4 && buf[0]===0x50 && buf[1]===0x4B && buf[2]===0x03 && buf[3]===0x04;      // .xlsx/.xlsm
+  const isOle2 = buf.length>=4 && buf[0]===0xD0 && buf[1]===0xCF && buf[2]===0x11 && buf[3]===0xE0;      // .xls
+  if(isZip || isOle2){
+    return XLSX.read(buf, {type:'array', cellDates:true});
+  }
+  // CSV path: decode as UTF-8 explicitly. Without this, SheetJS's own byte
+  // sniffing on a BOM-less UTF-8 CSV mis-reads accented headers like
+  // "Emisión" / "Método Pago" as mojibake ("EmisiÃ³n"), which breaks the
+  // column-name matching below (col(['emisión','emision']) fails to find it).
+  // raw:true also disables SheetJS's built-in "does this look like a date"
+  // auto-conversion for CSV cells — without it, SheetJS itself silently
+  // reinterprets ambiguous day-first strings like "04/06/2026" as MM/DD
+  // (April 6) whenever the day is ≤12, which is the same day/month-swap bug
+  // as the Excel-native-date case, just introduced at parse time instead of
+  // at file-save time. Keeping every CSV cell as a raw string lets the
+  // existing file-level Emisión sniffing (makeEmisionParser) do the
+  // day-first parsing itself, correctly and consistently.
+  const text = new TextDecoder('utf-8').decode(buf);
+  return XLSX.read(text, {type:'string', raw:true});
 }
 /* strip leading quotes/space so '"payablebill_$head,...' still matches */
 function leadText(v){ return (typeof v==='string') ? v.replace(/^["'\s]+/,'') : ''; }
