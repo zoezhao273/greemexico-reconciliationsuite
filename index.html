@@ -1055,7 +1055,7 @@ main{ padding:18px 0 64px }
       </label>
       <div class="tiecol"><span>&#8644;</span></div>
       <label class="card drop" id="dropCfdi">
-        <input type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden id="fileCfdi">
+        <input type="file" accept=".xlsx,.xls,.xlsm" hidden id="fileCfdi">
         <button type="button" class="clearbtn" id="clearCfdi" title="Remove this file">Clear</button>
         <div class="role">CFDI / SAT</div>
         <h3>Received invoices</h3>
@@ -1180,14 +1180,14 @@ main{ padding:18px 0 64px }
         <div class="card check"><div class="num">Check 3</div><h4>Posting month</h4>
           <p>NCC <code>DocDate</code> month must equal CFDI <code>Emisión</code> month. Run only when the record is <code>DocNo</code> starting with <code>AP</code> <i>and</i> <code>A/PType = CA Reimbursement</code>, or when the supplier contains <code>PETTY CASH</code>.</p></div>
         <div class="card check"><div class="num">Check 4</div><h4>Gas material</h4>
-          <p>Runs when the invoice is gasoline &mdash; CFDI <code>Conceptos Descripción</code> contains <code>gasolina</code>, <i>or</i> CFDI <code>Emisor Nombre</code> contains <code>GASOLINEROS</code>, <i>or</i> the CFDI <code>Emisor RFC</code> is a known gas-station issuer (<code>SOR701112L98</code> / <code>MES151124794</code>). The required <code>Material</code> depends on how it was paid, and the <b>NCC</b> column is left blank in both cases:</p>
+          <p>Runs when the invoice is gasoline &mdash; CFDI <code>Conceptos ClaveProdServ SAT</code> contains one of the SAT product/service codes <code>15101506</code>, <code>15101514</code>, or <code>15101515</code>. The required <code>Material</code> depends on how it was paid, and the <b>NCC</b> column is left blank in both cases:</p>
           <p style="margin-top:6px">&bull; <b>Forma de Pago &ne; 01</b> (not cash) &rarr; <code>Material</code> must be <code>Fuel - Private Vehicle</code> or <code>Fuel - Operational Vehicle</code>. Otherwise it reads <b>"For gasolina, Material = Fuel &amp; Supplier = Employee related if it's for private cars"</b>; the <b>CFDI</b> column shows the <code>Emisor Nombre</code>.</p>
           <p style="margin-top:6px">&bull; <b>Forma de Pago = 01</b> (cash) &rarr; <code>Material</code> must be <code>Non-Deductible Expense</code> (SAT disallows the deduction). Otherwise it reads <b>"For cash-paid gasolina, Material = Non-Deductible Expense &amp; Supplier = Employee related if it's for private cars"</b>; the <b>CFDI</b> column shows the <code>Forma de Pago</code> value.</p></div>
         <div class="card check"><div class="num">Check 5</div><h4>Total amount</h4>
           <p>NCC <code>AmtIncl.VAT(OC)</code> must equal CFDI <code>Total Original XML</code> to the cent (no tolerance). A split-by-expense-type invoice is summed within the record first. If booked <i>below</i> the invoice it reads <b>"Please verify the bank payment amount"</b>; if <i>above</i>, "does not match".</p></div>
         <div class="card check"><div class="num">Check 6</div><h4>VAT amount</h4>
           <p>Default: NCC <code>VATAmt(FC)</code> must equal CFDI <code>IVA</code> to the cent (summed per invoice within a record). Exception: for <code>Travel – Meals</code>, VAT equal to <b>8.5%</b> of the CFDI IVA (±0.01) is accepted — SAT allows only 8.5% deductible for meals within 50 km; if that pattern matches but <code>Material ≠ Travel – Meals</code> it still flags with <code>Meal ≤ 50 KM but incorrect material</code>.</p>
-          <p style="margin-top:6px"><b>Fuel lines</b> (any line whose <code>Material</code> contains <code>Fuel</code>) use the prorated gas rule instead: <code>VATAmt(FC)</code> must equal <code>AmtIncl.VAT(OC) &times; IVA &divide; Total Original XML</code>. If it matches, the line passes; otherwise it reads <b>"Correct Gas VAT = …"</b> with the computed amount &mdash; the <b>CFDI</b> column shows the <code>IVA</code> and the <b>NCC</b> column shows the booked <code>VATAmt(FC)</code>. Skipped for <code>PY</code> non-MXN lines (settled at the payment-date FX rate).</p></div>
+          <p style="margin-top:6px"><b>Fuel lines</b> (any line whose <code>Material</code> contains <code>Fuel</code>) use the prorated gas rule instead: <code>VATAmt(FC)</code> must equal <code>AmtIncl.VAT(OC) &times; IVA &divide; Total Original XML</code>. If it matches, the line passes; otherwise it reads <b>"Correct Gas VAT = …"</b> with the computed amount &mdash; the <b>CFDI</b> column shows the <code>IVA</code> and the <b>NCC</b> column shows the <code>AmtIncl.VAT(OC)</code>. Skipped for <code>PY</code> non-MXN lines (settled at the payment-date FX rate).</p></div>
         <div class="card check"><div class="num">Check 7</div><h4>Exchange rate</h4>
           <p>Only when NCC <code>Currency</code> is not <code>MXN</code>: NCC <code>Ex.Rate</code> must equal CFDI <code>Tipo Cambio</code>. Skipped for <code>PY</code> payment documents, whose foreign-currency lines use the payment-date rate rather than the invoice rate.</p></div>
         <div class="card check"><div class="num">Check 8</div><h4>Withholding tax</h4>
@@ -1363,11 +1363,11 @@ main{ padding:18px 0 64px }
       </div>
 
       <div class="upload-card" id="diot-card-cfdi" ondragover="diotDrag(event,'cfdi')" ondragleave="diotUndrag('cfdi')" ondrop="diotDrop(event,'cfdi')">
-        <input type="file" id="diot-file-cfdi" accept=".csv" onchange="diotFileChosen('cfdi',this)">
+        <input type="file" id="diot-file-cfdi" accept=".xlsx" onchange="diotFileChosen('cfdi',this)">
         <button type="button" class="card-clear" id="diot-clear-cfdi" onclick="diotClearCard('cfdi',event)">Clear</button>
         <div class="upload-role">CFDI / SAT</div>
         <div class="upload-title">Received CFDI</div>
-        <div class="upload-hint">.csv · source of truth · Estatus / Emisor RFC / UUID</div>
+        <div class="upload-hint">.xlsx · source of truth · Estatus / Emisor RFC / UUID</div>
         <div class="upload-filename" id="diot-name-cfdi"></div>
       </div>
     </div>
@@ -1430,7 +1430,7 @@ main{ padding:18px 0 64px }
     <div class="instructions">
       <h3>How it works</h3>
       <ul class="step-list">
-        <li><div class="step-num">1</div><span>Upload the two NCC workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong> and <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, plus the <strong>Received CFDI</strong> file (.csv). Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
+        <li><div class="step-num">1</div><span>Upload all three workbooks (.xlsx): <strong>NCC AP &mdash; CA Reimbursement</strong>, <strong>NCC PY &mdash; Pmt Doc For SCM</strong>, and the <strong>Received CFDI</strong> file. Each card has its own <strong>Clear</strong> button to swap a single file without resetting the others.</span></li>
         <li><div class="step-num">2</div><span>The tool reads the itemized <code>bodys</code> detail table from each NCC file. A row is <strong>kept</strong> when <code>IVA (NCC) &ne; 0</code>, <em>or</em> when <code>IVA (NCC) = 0</code> <strong>and</strong> its <code>Material</code> is not <code>Non-Deductible Expense</code>. Also excluded are salary / payroll-tax rows &mdash; <code>Material</code> containing <code>Fixed Salary</code> (incl. <code>Net Salary</code>), <code>ISN Expense</code>, or <code>IMSS Expense</code>. A <code>Material = MX Import VAT</code> row is <strong>always kept</strong> regardless of those rules; its <code>IVA (NCC)</code> is taken from <code>AmtIncl.VAT(OC)</code> and its <code>Emisor RFC</code> is set to <code>Mexico Customs</code>. Rows are kept even when the UUID is a placeholder, a foreign/Pedimento number, or blank.</span></li>
         <li><div class="step-num">3</div><span>Each kept row is enriched from the CFDI file: when the UUID is a well-formed folio <strong>and</strong> is found in the CFDI, every other field (<code>Emisor RFC</code>, <code>Estatus</code>, <code>Base IVA 16/8/0/Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>) is taken from the CFDI, and a <code>Note</code> compares <code>IVA (NCC)</code> against the CFDI <code>IVA</code> (equal &rarr; blank; greater &rarr; <em>Wrong, please check AP/PY Doc</em> in red; less &rarr; <em>reimbursed below the invoice</em>). Otherwise the <code>UUID</code> column shows the value recorded in the NCC file <strong>together with its DocNo.</strong> (e.g. <code>26 16 3167 6015444 | PY-MX-2605-00183</code>) so the line stays traceable, and every CFDI-sourced field is left blank. The <code>Material</code> appears in its own dedicated first column.</span></li>
         <li><div class="step-num">4</div><span>Review the on-screen report &mdash; non-<code>Vigente</code> rows are tinted and <code>Note</code> warnings are highlighted &mdash; then click <strong>Export to Excel</strong> to export the report columns in sequence: <code>Material</code>, <code>IVA (NCC)</code>, <code>IVA Rate (NCC)</code>, <code>Emisor RFC</code>, <code>UUID</code>, <code>Estatus</code>, <code>Base IVA 16</code>, <code>Base IVA 8</code>, <code>Base IVA 0</code>, <code>Base IVA Exento</code>, <code>Descuento</code>, <code>IVA</code>, <code>IVA Retenido</code>, <code>ISR Retenido</code>, <code>Note</code>.</span></li>
@@ -1555,29 +1555,7 @@ function sheetToRows(ws){
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
 }
 function readWorkbook(buf){
-  // buf is always a Uint8Array here. Binary workbooks (.xlsx/.xlsm = ZIP,
-  // .xls = OLE2/CFB) are self-describing and safe to hand straight to XLSX.read.
-  // Plain-text CSV has no such signature, so anything that isn't one of those
-  // two binary containers is treated as UTF-8 text instead of guessed at.
-  const isZip  = buf.length>=4 && buf[0]===0x50 && buf[1]===0x4B && buf[2]===0x03 && buf[3]===0x04;      // .xlsx/.xlsm
-  const isOle2 = buf.length>=4 && buf[0]===0xD0 && buf[1]===0xCF && buf[2]===0x11 && buf[3]===0xE0;      // .xls
-  if(isZip || isOle2){
-    return XLSX.read(buf, {type:'array', cellDates:true});
-  }
-  // CSV path: decode as UTF-8 explicitly. Without this, SheetJS's own byte
-  // sniffing on a BOM-less UTF-8 CSV mis-reads accented headers like
-  // "Emisión" / "Método Pago" as mojibake ("EmisiÃ³n"), which breaks the
-  // column-name matching below (col(['emisión','emision']) fails to find it).
-  // raw:true also disables SheetJS's built-in "does this look like a date"
-  // auto-conversion for CSV cells — without it, SheetJS itself silently
-  // reinterprets ambiguous day-first strings like "04/06/2026" as MM/DD
-  // (April 6) whenever the day is ≤12, which is the same day/month-swap bug
-  // as the Excel-native-date case, just introduced at parse time instead of
-  // at file-save time. Keeping every CSV cell as a raw string lets the
-  // existing file-level Emisión sniffing (makeEmisionParser) do the
-  // day-first parsing itself, correctly and consistently.
-  const text = new TextDecoder('utf-8').decode(buf);
-  return XLSX.read(text, {type:'string', raw:true});
+  return XLSX.read(buf, {type:'array', cellDates:true});
 }
 /* strip leading quotes/space so '"payablebill_$head,...' still matches */
 function leadText(v){ return (typeof v==='string') ? v.replace(/^["'\s]+/,'') : ''; }
@@ -1671,7 +1649,8 @@ function analyze(){
         cForma=col(['forma pago','forma de pago','formapago']),
         cDesc=col(['conceptos descripción','conceptos descripcion','concepto descripción','concepto descripcion','descripción','descripcion','conceptos','concepto']),
         cNombre=col(['emisor nombre','nombre emisor','emisornombre','nombre del emisor']),   // Emisor Nombre (issuer name)
-        cRfc=col(['emisor rfc','rfc emisor','emisorrfc']);                                   // Emisor RFC (issuer tax ID)
+        cRfc=col(['emisor rfc','rfc emisor','emisorrfc']),                                   // Emisor RFC (issuer tax ID)
+        cClaveProd=col(['conceptos claveprodserv sat','concepto claveprodserv sat','claveprodserv sat','claveprodserv']);  // Conceptos ClaveProdServ SAT (SAT product/service code)
   let cEstatus=col(['estatus','status']);
   if(cEstatus<0) cEstatus=2;   // CFDI column C ("Estatus") fallback when the header isn't matched by name
   if([cUuid,cEmis,cIva,cTotal].some(x=>x<0))
@@ -1698,6 +1677,8 @@ function analyze(){
       descripcion: cDesc>=0 ? String(r[cDesc]==null?'':r[cDesc]).trim() : '',       // Conceptos Descripción
       nombre: cNombre>=0 ? String(r[cNombre]==null?'':r[cNombre]).trim() : '',       // Emisor Nombre (issuer name)
       rfc: cRfc>=0 ? String(r[cRfc]==null?'':r[cRfc]).trim() : '',                   // Emisor RFC (issuer tax ID)
+      // Conceptos ClaveProdServ SAT — multi-concept invoices concatenate codes with "|", e.g. "78111808|80131800"
+      claveProdServ: cClaveProd>=0 ? String(r[cClaveProd]==null?'':r[cClaveProd]).split('|').map(s=>s.trim()).filter(Boolean) : [],
       estatus: cEstatus>=0 ? String(r[cEstatus]==null?'':r[cEstatus]).trim() : ''   // CFDI column C (Estatus)
     };
     invCount++;
@@ -1877,12 +1858,10 @@ function analyze(){
     const MEAL_MISLABEL = 'Meal \u2264 50 KM but incorrect material';
 
     // ---- gasoline / fuel detection ----
-    // A gasoline invoice is recognised by EITHER the CFDI Conceptos Descripción containing
-    // "gasolina" OR the CFDI Emisor Nombre containing "GASOLINEROS".
-    const descGas = String(c.descripcion||'').toLowerCase().includes('gasolina');
-    const nameGas = String(c.nombre||'').toLowerCase().includes('gasolineros');
-    const rfcGas  = ['SOR701112L98','MES151124794'].includes(String(c.rfc||'').trim().toUpperCase());  // known gasoline-station issuer RFCs
-    const isGas   = descGas || nameGas || rfcGas;
+    // A gasoline invoice is recognised by the CFDI Conceptos ClaveProdServ SAT containing
+    // one of the SAT product/service codes for gasoline: 15101506, 15101514, 15101515.
+    const GAS_CODES = ['15101506','15101514','15101515'];
+    const isGas = (c.claveProdServ||[]).some(code=>GAS_CODES.includes(code));
     const matHasFuel = g.lines.some(l=>String(l.material||'').toLowerCase().includes('fuel'));
     const formaVal = String(c.formaPago||'').trim() || '(blank)';
 
@@ -1923,7 +1902,7 @@ function analyze(){
         if(cents(sumVat)!==cents(expected))
           push({...base,check:'iva',
                 reason:'Correct Gas VAT = '+money(expected),
-                cfdi:money(c.iva), ncc:money(sumVat)});
+                cfdi:money(c.iva), ncc:money(sumAmt)});
       } else if(cents(sumVat)!==cents(c.iva)){
         const below = cents(c.iva)>cents(sumVat);
         push({...base,check:'iva',
