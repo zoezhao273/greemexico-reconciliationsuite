@@ -115,7 +115,7 @@ Cross-references NCC accounting documents (the CA Reimbursement and Pmt Doc For 
 
 ## Shared internals
 
-All three modules reuse the same helpers: `normUuid` / `isUuidFormat` (UUID normalization and validation), `parseNum` / `cents` (money parsed and compared as integer cents to avoid floating-point noise), `pickCfdiRows` / `sheetToRows` (header sniffing), and `makeEmisionParser` (file-level CFDI date format detection — the format is detected once from the first dated row and reused for the whole file, so e.g. `2025-12-31` parses as month 12, not day 31).
+All three modules reuse the same helpers: `normUuid` / `isUuidFormat` (UUID normalization and validation), `parseNum` / `cents` (money parsed and compared as integer cents to avoid floating-point noise), `pickCfdiRows` / `sheetToRows` (header sniffing), and `makeEmisionParser` (CFDI `Emisión` date parsing — the column is a fixed DD/MM/YYYY day-first text format, parsed directly with no per-file detection; `readWorkbook()` passes `raw:true` at the `XLSX.read()` level so SheetJS never silently guess-converts ambiguous day-first CSV text into wrongly-interpreted Date objects before this code ever sees it).
 
 ## Notes
 
