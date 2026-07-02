@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>NCC &times; CFDI Reconciliation</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -1055,11 +1058,11 @@ main{ padding:18px 0 64px }
       </label>
       <div class="tiecol"><span>&#8644;</span></div>
       <label class="card drop" id="dropCfdi">
-        <input type="file" accept=".xlsx,.xls,.xlsm" hidden id="fileCfdi">
+        <input type="file" accept=".csv" hidden id="fileCfdi">
         <button type="button" class="clearbtn" id="clearCfdi" title="Remove this file">Clear</button>
         <div class="role">CFDI / SAT</div>
         <h3>Received invoices</h3>
-        <p class="hint">The workbook of all CFDI invoices received this year (the source of truth).</p>
+        <p class="hint">CSV export of all CFDI invoices received this year (the source of truth). .csv only.</p>
         <div class="fname" id="nameCfdi"></div>
         <div class="meta" id="metaCfdi"></div>
       </label>
@@ -1363,11 +1366,11 @@ main{ padding:18px 0 64px }
       </div>
 
       <div class="upload-card" id="diot-card-cfdi" ondragover="diotDrag(event,'cfdi')" ondragleave="diotUndrag('cfdi')" ondrop="diotDrop(event,'cfdi')">
-        <input type="file" id="diot-file-cfdi" accept=".xlsx" onchange="diotFileChosen('cfdi',this)">
+        <input type="file" id="diot-file-cfdi" accept=".csv" onchange="diotFileChosen('cfdi',this)">
         <button type="button" class="card-clear" id="diot-clear-cfdi" onclick="diotClearCard('cfdi',event)">Clear</button>
         <div class="upload-role">CFDI / SAT</div>
         <div class="upload-title">Received CFDI</div>
-        <div class="upload-hint">.xlsx · source of truth · Estatus / Emisor RFC / UUID</div>
+        <div class="upload-hint">.csv · source of truth · Estatus / Emisor RFC / UUID</div>
         <div class="upload-filename" id="diot-name-cfdi"></div>
       </div>
     </div>
@@ -1442,7 +1445,7 @@ main{ padding:18px 0 64px }
   </section>
 </main>
 
-<footer>Runs entirely in your browser &middot; no file ever leaves your computer.</footer>
+<footer>Runs entirely in your browser &middot; no file ever leaves your computer. &middot; <span id="buildStamp" style="opacity:.6">Build 2026-07-02</span></footer>
 
 <script>
 const WHT_CODE = 'PresetWHTL0 Donot used';
@@ -2121,6 +2124,15 @@ function wireDrop(dropId, inputId, nameId, metaId, clearId, kind){
   };
   const onFile=(file)=>{
     if(!file) return;
+    if(kind==='cfdi' && !/\.csv$/i.test(file.name)){
+      drop.classList.remove('loaded');
+      cfdiRows=null;
+      document.getElementById(nameId).textContent='';
+      document.getElementById(metaId).textContent='';
+      showError('The CFDI file must be a .csv export (CFDI files are no longer accepted as .xlsx). "'+file.name+'" was rejected.');
+      updateRunState();
+      return;
+    }
     const reader=new FileReader();
     reader.onload=(ev)=>{
       try{
@@ -3086,6 +3098,12 @@ function diotStale(){ document.getElementById('diot-results').classList.remove('
 
 function diotLoadFile(kind, file){
   if(!file) return;
+  if(kind==='cfdi' && !/\.csv$/i.test(file.name)){
+    diotResetSource(kind); diotSetLoaded(kind, file, false);
+    diotShowError('The CFDI file must be a .csv export (CFDI files are no longer accepted as .xlsx). "'+file.name+'" was rejected.');
+    diotUpdateRunState();
+    return;
+  }
   const reader=new FileReader();
   reader.onload=(ev)=>{
     try{
