@@ -857,6 +857,585 @@ main{ padding:18px 0 64px }
     margin-top: 2px;
   }
 
+/* ===== Settlement Reconciliation tool (scoped under #view-settle) ===== */
+:where(#view-settle) *{ margin:0; padding:0 }
+#view-settle td{ vertical-align:middle }
+#view-settle .container{position:relative;max-width:none;margin:0;padding:18px 0 64px}
+#view-settle .section-label{
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+#view-settle .section-label::after{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-settle .upload-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+@media (max-width: 560px){
+#view-settle .upload-grid{ grid-template-columns: 1fr; }
+}
+#view-settle .upload-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 22px 20px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.12s;
+    position: relative;
+    display: block;
+  }
+#view-settle .upload-card:hover{
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-1px);
+  }
+#view-settle .upload-card.dragover{ border-color: var(--accent); background: var(--accent-light); }
+#view-settle .upload-card.loaded{
+    border-color: var(--pass);
+    background: #F4FAF6;
+  }
+#view-settle .upload-card input[type=file]{
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+#view-settle .upload-role{
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+#view-settle .upload-title{
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 6px 0 4px;
+    line-height: 1.3;
+  }
+#view-settle .upload-hint{
+    font-size: 13px;
+    color: var(--ink3);
+    line-height: 1.5;
+    margin: 0;
+  }
+#view-settle .upload-filename{
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--pass);
+    margin-top: 12px;
+    word-break: break-all;
+    display: none;
+    font-weight: 600;
+  }
+#view-settle .upload-card.loaded .upload-filename{ display: block; }
+#view-settle .optional-row{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 0 2px;
+  }
+#view-settle .optional-label{
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    white-space: nowrap;
+  }
+#view-settle .optional-line{
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-settle .options-row{ margin-bottom: 20px; }
+#view-settle .option-toggle{
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 18px;
+    transition: border-color 0.18s, background 0.18s;
+    user-select: none;
+    width: 100%;
+  }
+#view-settle .option-toggle:hover{ border-color: var(--accent); background: var(--accent-light); }
+#view-settle .option-toggle input[type=checkbox]{ display: none; }
+#view-settle .toggle-track{
+    flex-shrink: 0;
+    position: relative;
+    width: 38px; height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    transition: background 0.2s;
+  }
+#view-settle .option-toggle input:checked ~ .toggle-track{ background: var(--accent); }
+#view-settle .toggle-thumb{
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+#view-settle .option-toggle input:checked ~ .toggle-track .toggle-thumb{ transform: translateX(16px); }
+#view-settle .option-text{ display: flex; flex-direction: column; gap: 2px; }
+#view-settle .option-title{ font-size: 12px; font-weight: 500; color: var(--ink); }
+#view-settle .option-desc{ font-size: 10px; color: var(--ink3); }
+#view-settle .clear-btn{
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink3);
+    cursor: pointer;
+    transition: color 0.15s;
+    margin-left: auto;
+  }
+#view-settle .clear-btn.visible{ display: flex; }
+#view-settle .clear-btn:hover{ color: var(--err); }
+#view-settle .clear-btn-dot{
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+#view-settle .error-banner{
+    background: var(--err-light);
+    border: 1px solid var(--err-mid);
+    border-left: 3px solid var(--err);
+    border-radius: 9px;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #8A2C22;
+    margin-bottom: 16px;
+    display: none;
+  }
+#view-settle .run-btn{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.05s;
+    margin-bottom: 28px;
+  }
+#view-settle .run-btn:hover:not(:disabled){
+    background: var(--accent2);
+  }
+#view-settle .run-btn:active:not(:disabled){ transform: translateY(1px); }
+#view-settle .run-btn:disabled{
+    background: #B7C2C9;
+    color: #fff;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+#view-settle .run-btn .spinner{
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+#view-settle .run-btn.loading .spinner{ display: block; }
+#view-settle .run-btn.loading .btn-text{ display: none; }
+@keyframes spin{ to { transform: rotate(360deg); } }
+#view-settle .log-box{
+    background: #16212B;
+    color: #8ec9a4;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    line-height: 1.85;
+    margin-bottom: 28px;
+    display: none;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid #2a3742;
+  }
+#view-settle .log-box.visible{ display: block; }
+#view-settle .log-line.warn{ color: #f0c070; }
+#view-settle .log-line.error{ color: #e88080; }
+#view-settle .log-line.ok{ color: #8ec9a4; }
+#view-settle .log-line.info{ color: #7ab8d8; }
+#view-settle .results{ display: none; }
+#view-settle .results.visible{ display: block; }
+#view-settle .results-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+#view-settle .results-title{
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+#view-settle .download-btn{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: #fff;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: background 0.18s;
+  }
+#view-settle .download-btn:hover{ background: var(--accent-light); }
+#view-settle .stats-row{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+@media (max-width: 600px){
+#view-settle .stats-row{ grid-template-columns: repeat(2,1fr); }
+}
+#view-settle .stat-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 16px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+#view-settle .stat-card::before{
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.18;
+  }
+#view-settle .stat-card.has-warn::before{ background: var(--err); opacity: 0.7; }
+#view-settle .stat-num{
+    font-family: var(--sans);
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    display: block;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+#view-settle .stat-num.warn{ color: var(--err); }
+#view-settle .stat-num.ok{ color: var(--pass); }
+#view-settle .stat-label{
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    display: block;
+    line-height: 1.4;
+  }
+#view-settle .validation-section{ margin-bottom: 20px; }
+#view-settle .validation-title{
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+#view-settle .validation-title::after{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+  }
+#view-settle .validation-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+@media (max-width: 640px){
+#view-settle .validation-grid{ grid-template-columns: 1fr; }
+}
+#view-settle .vcard{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(22,33,43,.04);
+    padding: 14px 16px;
+    font-size: 11px;
+  }
+#view-settle .vcard-title{
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 500;
+  }
+#view-settle .vcard-dot{
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+#view-settle .vrow{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-light);
+    gap: 8px;
+  }
+#view-settle .vrow-label{
+    color: var(--ink3);
+    font-size: 10px;
+    padding-top: 1px;
+  }
+#view-settle .vrow-val{
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    text-align: right;
+  }
+#view-settle .vmatch-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+#view-settle .vmatch-badge.ok{ background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-mid); }
+#view-settle .vmatch-badge.warn{ background: var(--warn-light);   color: var(--warn);   border: 1px solid var(--warn-mid); }
+#view-settle .tabs{
+    display: flex;
+    gap: 0;
+    border-bottom: 1.5px solid var(--border);
+    margin-bottom: 0;
+  }
+#view-settle .tab-btn{
+    padding: 11px 22px;
+    font-family: var(--sans);
+    font-size: 13px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink3);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1.5px;
+    transition: color 0.15s;
+    letter-spacing: 0;
+  }
+#view-settle .tab-btn.active{
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+  }
+#view-settle .table-wrap{
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    background: var(--surface);
+  }
+#view-settle table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+#view-settle thead th{
+    background: #FAFBFC;
+    color: var(--ink3);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 700;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+#view-settle thead th:first-child{ padding-left: 20px; }
+#view-settle tbody tr{ border-bottom: 1px solid var(--border-light); }
+#view-settle tbody tr:last-child{ border-bottom: none; }
+#view-settle tbody tr:hover{ background: #FBFCFD !important; }
+#view-settle tbody td{
+    padding: 11px 16px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+#view-settle tbody td:first-child{ padding-left: 20px; }
+#view-settle .td-num{ text-align: right; font-variant-numeric: tabular-nums; }
+#view-settle tr.matched{ background: var(--match-light); }
+#view-settle tr.unmatched-a{ background: var(--warn-light); }
+#view-settle tr.unmatched-b{ background: var(--warn-light); }
+#view-settle .note-text{
+    color: var(--warn);
+    font-size: 12px;
+  }
+#view-settle .blank-cell{ color: var(--ink3); }
+#view-settle tfoot td{
+    background: #FAFBFC;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+#view-settle tfoot td:first-child{ padding-left: 20px; }
+#view-settle .nomina-badge{
+    display: inline-flex;
+    align-items: center;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--warn-light);
+    color: var(--warn);
+    border: 1px solid var(--warn-mid);
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+#view-settle .instructions{
+    margin-top: 48px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 32px;
+  }
+#view-settle .instructions h3{
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 20px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+#view-settle .step-list{
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+#view-settle .step-list li{
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 12px;
+    color: var(--ink2);
+    line-height: 1.65;
+  }
+#view-settle .step-num{
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+/* --- Settlement-specific extras --- */
+#view-settle .s-two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:640px){ #view-settle .s-two-col{ grid-template-columns:1fr; } }
+#view-settle table{ width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed; }
+#view-settle thead th{ text-align:left; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink3); font-weight:700; padding:10px 12px; border-bottom:1px solid var(--border); background:var(--paper2); white-space:nowrap; }
+#view-settle tbody td{ padding:10px 12px; border-bottom:1px solid var(--border-light); vertical-align:top; overflow:hidden; }
+#view-settle .s-num{ text-align:right; font-family:var(--mono); white-space:nowrap; }
+#view-settle .s-cur{ font-family:var(--mono); color:var(--ink2); white-space:nowrap; }
+#view-settle .s-kind{ color:var(--ink2); white-space:nowrap; }
+#view-settle .s-docs{ overflow:hidden; }
+#view-settle thead th:nth-child(1){ width:96px; }
+#view-settle thead th:nth-child(2){ width:74px; }
+#view-settle thead th:nth-child(3){ width:176px; }
+#view-settle thead th:nth-child(4){ width:70px; }
+#view-settle thead th:nth-child(5){ width:104px; }
+#view-settle thead th:nth-child(6){ width:104px; }
+#view-settle thead th:nth-child(7){ width:88px; }
+#view-settle .s-doc{ display:block; width:max-content; max-width:100%; font-family:var(--mono); font-size:11.5px; color:var(--ink);
+    background:var(--paper3); border-radius:4px; padding:1px 6px; margin:0 0 3px 0; word-break:break-all; }
+#view-settle .s-more{ display:block; margin-top:1px; }
+#view-settle .s-more summary{ display:inline-block; cursor:pointer; list-style:none; font-family:var(--sans);
+    font-size:11px; font-weight:700; color:var(--accent); background:var(--accent-light);
+    border:1px solid var(--accent-mid); border-radius:20px; padding:1px 9px; margin:1px 0; user-select:none; }
+#view-settle .s-more summary::-webkit-details-marker{ display:none; }
+#view-settle .s-more[open] summary{ color:var(--ink3); background:var(--paper3); border-color:var(--border); }
+#view-settle .s-more[open] summary::after{ content:' \2013 hide'; font-weight:400; }
+#view-settle .s-more-body{ margin-top:4px; }
+#view-settle .s-note{ color:var(--ink2); word-break:break-word; }
+#view-settle .s-diff-err{ color:var(--err); font-weight:700; }
+#view-settle .s-diff-info{ color:var(--warn); }
+#view-settle .s-clean{ text-align:center; color:var(--pass); padding:26px 12px; font-weight:600; }
+#view-settle .s-badge{ display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+#view-settle .s-badge-err{ color:#8A2C22; background:var(--err-light); border:1px solid var(--err-mid); }
+#view-settle .s-badge-warn{ color:var(--warn); background:var(--warn-light); border:1px solid var(--warn-mid); }
+#view-settle .s-badge-info{ color:#0F5650; background:var(--accent-light); border:1px solid var(--accent-mid); }
+#view-settle .s-badge-ok{ color:var(--pass); background:var(--match-light); border:1px solid #BFE3CC; }
+#view-settle .s-badge-mute{ color:var(--ink3); background:var(--paper3); border:1px solid var(--border); }
+#view-settle .s-row-typeErr td, #view-settle .s-row-amtErr td{ background:#FDF7F6; }
+#view-settle .s-row-missing td, #view-settle .s-row-review td{ background:#FDFBF3; }
+#view-settle .s-showall{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink2); margin-left:auto; }
+
 /* ===== DIOT Creation tool (scoped under #view-diot) ===== */
 :where(#view-diot) *{ margin:0; padding:0 }
 #view-diot td{ vertical-align:middle }
@@ -1027,8 +1606,9 @@ main{ padding:18px 0 64px }
 <nav class="stepnav">
   <div class="wrap">
     <button class="stepnav-btn active" data-step="cfdi" onclick="showStep('cfdi')"><span class="num">1</span> NCC &times; CFDI Reconciliation</button>
-    <button class="stepnav-btn" data-step="bank" onclick="showStep('bank')"><span class="num">2</span> Bank Reconciliation</button>
-    <button class="stepnav-btn" data-step="diot" onclick="showStep('diot')"><span class="num">3</span> DIOT Creation</button>
+    <button class="stepnav-btn" data-step="settle" onclick="showStep('settle')"><span class="num">2</span> Settlement Reconciliation</button>
+    <button class="stepnav-btn" data-step="bank" onclick="showStep('bank')"><span class="num">3</span> Bank Reconciliation</button>
+    <button class="stepnav-btn" data-step="diot" onclick="showStep('diot')"><span class="num">4</span> DIOT Creation</button>
   </div>
 </nav>
 
@@ -1096,7 +1676,7 @@ main{ padding:18px 0 64px }
 
     <p class="steplabel">Reconcile</p>
     <div class="runrow">
-      <button class="run" id="runBtn" disabled>Run reconciliation</button>
+      <button class="run" id="runBtn" disabled>Run Reconciliation</button>
       <span class="runnote" id="runNote">Load both files to continue.</span>
     </div>
     <div class="alert err" id="alertBox"></div>
@@ -1205,6 +1785,119 @@ main{ padding:18px 0 64px }
       </div>
       </div>
     </details>
+  </div>
+  </section>
+
+  <section id="view-settle" class="view">
+  <div class="wrap">
+    <div class="page-head">
+      <p class="page-title">Settlement Reconciliation</p>
+      <p class="page-sub">Check the NCC settlement links that clear the <code>Input VAT Pending Payment</code> and <code>Output VAT not Collected</code> accounts. Every settlement group is verified for correct transaction-type pairing and for equal offsetting VAT — so the pending/uncollected VAT nets to exactly zero.</p>
+      <div class="tieout">
+        <span class="ledgertag"><b>A/P · A/R</b> documents</span>
+        <span class="tie">&#8644;</span>
+        <span class="ledgertag"><b>Payment · Collection</b> documents</span>
+        <span class="tie tie-soft">&middot; linked by settlement file</span>
+      </div>
+    </div>
+<div class="container">
+
+  <div style="display:flex;align-items:center;margin-bottom:12px">
+    <div class="section-label" style="flex:1;margin-bottom:0">Upload files</div>
+    <button class="clear-btn" id="s-clear-btn" onclick="sClearAll()">
+      <span class="clear-btn-dot">×</span>
+      Clear all
+    </button>
+  </div>
+
+  <div class="upload-grid">
+    <div class="upload-card" id="s-card-settle" ondragover="sDrag(event,'settle')" ondragleave="sUndrag('settle')" ondrop="sDrop(event,'settle')">
+      <input type="file" id="s-file-settle" accept=".xlsx,.xls" onchange="sFileChosen('settle',this)">
+      <div class="upload-role">NCC / Settlement</div>
+      <div class="upload-title">Settlement Detail — required</div>
+      <div class="upload-hint">.xlsx · links AP/PY and AR/RC · one row per matched pair</div>
+      <div class="upload-filename" id="s-name-settle"></div>
+    </div>
+  </div>
+
+  <div class="optional-row">
+    <span class="optional-label">Document details — upload the ones your settlements reference</span>
+    <span class="optional-line"></span>
+  </div>
+
+  <div class="s-two-col" style="margin-bottom:14px">
+    <div class="upload-card" id="s-card-ap" ondragover="sDrag(event,'ap')" ondragleave="sUndrag('ap')" ondrop="sDrop(event,'ap')">
+      <input type="file" id="s-file-ap" accept=".xlsx,.xls" onchange="sFileChosen('ap',this)">
+      <div class="upload-role">NCC / A/P</div>
+      <div class="upload-title">A/P Detail</div>
+      <div class="upload-hint">.xlsx · D1 / F1-Cxx-01 / F1-Cxx-03</div>
+      <div class="upload-filename" id="s-name-ap"></div>
+    </div>
+    <div class="upload-card" id="s-card-py" ondragover="sDrag(event,'py')" ondragleave="sUndrag('py')" ondrop="sDrop(event,'py')">
+      <input type="file" id="s-file-py" accept=".xlsx,.xls" onchange="sFileChosen('py',this)">
+      <div class="upload-role">NCC / Payment</div>
+      <div class="upload-title">Payment Detail</div>
+      <div class="upload-hint">.xlsx · D3 / F3-Cxx-001 / F3-Cxx-002</div>
+      <div class="upload-filename" id="s-name-py"></div>
+    </div>
+  </div>
+
+  <div class="s-two-col" style="margin-bottom:24px">
+    <div class="upload-card" id="s-card-ar" ondragover="sDrag(event,'ar')" ondragleave="sUndrag('ar')" ondrop="sDrop(event,'ar')">
+      <input type="file" id="s-file-ar" accept=".xlsx,.xls" onchange="sFileChosen('ar',this)">
+      <div class="upload-role">NCC / A/R</div>
+      <div class="upload-title">A/R Detail</div>
+      <div class="upload-hint">.xlsx · D0</div>
+      <div class="upload-filename" id="s-name-ar"></div>
+    </div>
+    <div class="upload-card" id="s-card-rc" ondragover="sDrag(event,'rc')" ondragleave="sUndrag('rc')" ondrop="sDrop(event,'rc')">
+      <input type="file" id="s-file-rc" accept=".xlsx,.xls" onchange="sFileChosen('rc',this)">
+      <div class="upload-role">NCC / Collection</div>
+      <div class="upload-title">Collection Detail</div>
+      <div class="upload-hint">.xlsx · D2</div>
+      <div class="upload-filename" id="s-name-rc"></div>
+    </div>
+  </div>
+
+  <div class="error-banner" id="s-err-banner"></div>
+
+  <button class="run-btn" id="s-run-btn" onclick="sRun()" disabled>
+    <div class="spinner"></div>
+    <span class="btn-text">Run Reconciliation</span>
+  </button>
+
+  <div class="log-box" id="s-log-box"></div>
+
+  <div class="results" id="s-results">
+    <div class="section-label" style="margin-bottom:20px">Results</div>
+
+    <div class="stats-row" id="s-stats-row"></div>
+
+    <div class="tabs" style="align-items:center">
+      <label class="s-showall"><input type="checkbox" id="s-show-all" onchange="sToggleAll()"> Show all (incl. pass / exempt)</label>
+      <button class="export" id="s-dl-btn" onclick="sExport()" style="margin-left:14px;align-self:center;margin-bottom:6px">Export to Excel</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="s-preview-table">
+        <thead id="s-tbl-head"></thead>
+        <tbody id="s-tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h3>How it works</h3>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><span>Upload the <strong>Settlement Detail</strong> — required. Then upload whichever document details your settlements reference: A/P, Payment, A/R, Collection.</span></li>
+      <li><div class="step-num">2</div><span><strong>Type match:</strong> each settlement group must pair correctly — <code>D1</code>/<code>F1-Cxx-01</code> with <code>D3</code>; <code>F1-Cxx-03</code> with <code>F3-Cxx-001</code>/<code>F3-Cxx-002</code>; <code>D0</code> with <code>D2</code>. Anything else is a type mismatch.</span></li>
+      <li><div class="step-num">3</div><span><strong>Tax equal:</strong> the settled portion's VAT on each side must offset exactly. Partial settlements are handled by prorating VAT to the settled amount, so a half-paid invoice is not falsely flagged.</span></li>
+      <li><div class="step-num">4</div><span><strong>Exemptions:</strong> GREE-supplier (payroll) groups and borrow-reimbursement groups are checked for type only. <code>Realized Ex. Gain/Loss</code> and <code>Discount Settlement</code> schemes are skipped entirely.</span></li>
+      <li><div class="step-num">5</div><span><strong>MXN</strong> groups allow zero tax difference; <strong>USD/CNY</strong> groups may differ (invoice-date vs settlement-date rate) — the gap is reported, not errored. Documents referenced by the settlement file but absent from the uploaded details raise a <strong>Missing detail</strong> warning and that group is skipped.</span></li>
+    </ul>
+  </div>
+
+</div>
   </div>
   </section>
 
@@ -1445,7 +2138,7 @@ main{ padding:18px 0 64px }
   </section>
 </main>
 
-<footer>Runs entirely in your browser &middot; no file ever leaves your computer. &middot; <span id="buildStamp" style="opacity:.6">Build 2026-07-02</span></footer>
+<footer>Runs entirely in your browser &middot; no file ever leaves your computer. &middot; <span id="buildStamp" style="opacity:.6">Build 2026-07-03</span></footer>
 
 <script>
 const WHT_CODE = 'PresetWHTL0 Donot used';
@@ -3431,5 +4124,557 @@ function diotDownloadXlsx(){
   const stamp=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0');
   XLSX.writeFile(wb, 'DIOT_Report_'+stamp+'.xlsx');
 }
+
+
+/* ===================== Settlement Reconciliation (step 2) ===================== */
+/* ==================================================================
+   Settlement Reconciliation (step 2)  —  self-contained IIFE
+   Cross-checks NCC settlement links between AP/PY and AR/RC
+   documents. Two goals:
+     (1) Type match  — D1/F1-Cxx-01 <-> D3 ; F1-Cxx-03 <-> F3-Cxx-001/002 ;
+                        D0 <-> D2. Any other pairing is a mismatch.
+     (2) Tax equal   — the settled portion's VATAmt(FC) on the debit side
+                        must equal the credit side (MXN: zero tolerance;
+                        USD/CNY: differences allowed, reported as FX diff).
+   Amount check is exempt for: GREE-supplier (payroll) groups, and
+   borrow-reimbursement groups (F1-Cxx-03 / F3-Cxx-*).
+   ================================================================== */
+(function(){
+  "use strict";
+
+  var S = {
+    files: { settle:null, ap:null, py:null, ar:null, rc:null },
+    result: null
+  };
+
+  // ---- small helpers (scoped; do not touch the CFDI/Bank/DIOT globals) ----
+  function sNum(v){
+    if(v===null||v===undefined) return 0;
+    var n = parseFloat(String(v).replace(/,/g,'').trim());
+    return isFinite(n) ? n : 0;
+  }
+  function sCents(v){ return Math.round(sNum(v)*100); }
+  function sHnorm(s){ return String(s===null||s===undefined?'':s).replace(/\s+/g,' ').trim().toLowerCase(); }
+  function sTrim(v){ return String(v===null||v===undefined?'':v).trim(); }
+  function normCur(v){
+    var c = sTrim(v);
+    // exact (Chinese) forms first, then a normalised English lookup
+    var mZh = {'墨西哥比索':'MXN','美元':'USD','美金':'USD','人民币':'CNY'};
+    if(mZh[c]) return mZh[c];
+    var u = c.toUpperCase().replace(/[._]/g,' ').replace(/\s+/g,' ').trim();
+    var mEn = {
+      'USD':'USD','US DOLLAR':'USD','US DOLLARS':'USD','U S DOLLAR':'USD','DOLLAR':'USD','DOLLARS':'USD',
+      'MXN':'MXN','MXP':'MXN','MEXICAN PESO':'MXN','MEXICAN PESOS':'MXN','PESO':'MXN','PESO MEXICANO':'MXN',
+      'CNY':'CNY','RMB':'CNY','CHINESE YUAN':'CNY','YUAN':'CNY','RENMINBI':'CNY','YUAN RENMINBI':'CNY'
+    };
+    return mEn[u] || u;
+  }
+  function normType(v){ return sTrim(v).toUpperCase(); }
+
+  function sReadWorkbook(buf){
+    // raw:true at read level — same rationale as the CFDI module: stops
+    // SheetJS from re-interpreting day-first date text. Not date-sensitive
+    // here, but keeps every cell as the literal string NCC exported.
+    return XLSX.read(buf, {type:'array', cellDates:false, raw:true});
+  }
+  function sSheetRows(wb){
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+  }
+  function sReadFile(f){
+    return new Promise(function(res, rej){
+      var r = new FileReader();
+      r.onload  = function(e){ res(e.target.result.slice(0)); };
+      r.onerror = function(){ rej(new Error('Failed to read ' + f.name)); };
+      r.readAsArrayBuffer(f);
+    });
+  }
+
+  // find a header column index by trying a list of candidate labels /
+  // substrings against a header row (case-insensitive, space-collapsed)
+  function findCol(headerRow, opts){
+    var i, h;
+    // exact matches first
+    if(opts.exact){
+      for(i=0;i<headerRow.length;i++){
+        h = sHnorm(headerRow[i]).replace(/^\*\s*/,'');
+        for(var e=0;e<opts.exact.length;e++){
+          if(h === sHnorm(opts.exact[e])) return i;
+        }
+      }
+    }
+    if(opts.contains){
+      for(i=0;i<headerRow.length;i++){
+        h = sHnorm(headerRow[i]);
+        for(var c=0;c<opts.contains.length;c++){
+          if(h.indexOf(sHnorm(opts.contains[c])) !== -1) return i;
+        }
+      }
+    }
+    return -1;
+  }
+
+  // Parse one NCC main+sub workbook (A/P, Payment, A/R or Collection detail).
+  // Layout: row0 notice, row1 head-header, head rows, blank row,
+  // sub-header, sub rows. Main & sub linked by the first column (line no).
+  // Returns { docs:{DocNo:{type,cur,gree,vat,amt,mixedRate}}, count }.
+  function parseDetail(buf, label){
+    var rows = sSheetRows(sReadWorkbook(buf));
+    // locate blank separator (first fully-empty row at index >= 2)
+    var sep = -1, i, r, j, nonblank;
+    for(i=2;i<rows.length;i++){
+      r = rows[i] || [];
+      nonblank = false;
+      for(j=0;j<r.length;j++){ if(r[j]!==null && sTrim(r[j])!=='' ){ nonblank=true; break; } }
+      if(!nonblank){ sep = i; break; }
+    }
+    if(sep === -1) throw new Error(label + ': could not find the blank row that separates the main table from the sub-table. Is this the raw NCC export?');
+
+    var headHeader = rows[1] || [];
+    var subHeader  = rows[sep+1] || [];
+
+    var cDoc  = findCol(headHeader, {exact:['DocNo.','DocNo','单据编号']});
+    var cCur  = findCol(headHeader, {exact:['Currency','币种'], contains:['currency','币种']});
+    var cType = findCol(headHeader, {contains:['类型code']});
+    var cSup  = findCol(headHeader, {exact:['Supplier','供应商'], contains:['supplier','供应商']});
+    if(cDoc<0)  throw new Error(label + ': "DocNo." column not found in the main table header.');
+    if(cType<0) throw new Error(label + ': transaction-type ("...类型code") column not found.');
+
+    var cVat = findCol(subHeader, {exact:['VATAmt(FC)'], contains:['vatamt(fc)']});
+    var cAmt = findCol(subHeader, {exact:['AmtIncl.VAT(OC)','CreditAmtinOC','AmtinOC'],
+                                   contains:['amtincl.vat(oc)','creditamtinoc','amtinoc']});
+    var cRate = findCol(subHeader, {exact:['VATRate','VATRate(FC)'], contains:['vatrate']});
+    if(cVat<0) throw new Error(label + ': "VATAmt(FC)" column not found in the sub-table header.');
+    if(cAmt<0) throw new Error(label + ': incl-VAT amount column (AmtIncl.VAT(OC)/CreditAmtinOC) not found in the sub-table.');
+
+    // main table: line-no -> header info
+    var head = {};
+    for(i=2;i<sep;i++){
+      r = rows[i]; if(!r) continue;
+      var ln = sTrim(r[0]);
+      if(ln==='' || r[cDoc]===null) continue;
+      head[ln] = {
+        doc:  sTrim(r[cDoc]),
+        type: normType(r[cType]),
+        cur:  cCur>=0 ? normCur(r[cCur]) : '',
+        gree: cSup>=0 ? /GREE/i.test(sTrim(r[cSup])) : false
+      };
+    }
+    // sub table: sum vat & amt by line-no, track distinct nonzero vat rates
+    var vatBy = {}, amtBy = {}, ratesBy = {};
+    for(i=sep+2;i<rows.length;i++){
+      r = rows[i]; if(!r) continue;
+      var ln2 = sTrim(r[0]);
+      if(ln2==='') continue;
+      vatBy[ln2] = (vatBy[ln2]||0) + sNum(r[cVat]);
+      amtBy[ln2] = (amtBy[ln2]||0) + sNum(r[cAmt]);
+      if(cRate>=0){
+        var rate = sTrim(r[cRate]);
+        if(rate!=='' && sNum(r[cAmt])!==0){
+          (ratesBy[ln2] = ratesBy[ln2] || {})[rate] = 1;
+        }
+      }
+    }
+    var docs = {}, count = 0;
+    for(var k in head){
+      var info = head[k];
+      var nRates = ratesBy[k] ? Object.keys(ratesBy[k]).length : 0;
+      docs[info.doc] = {
+        type: info.type, cur: info.cur, gree: info.gree,
+        vat: Math.round((vatBy[k]||0)*100)/100,
+        amt: Math.round((amtBy[k]||0)*100)/100,
+        mixedRate: nRates > 1,
+        src: label
+      };
+      count++;
+    }
+    return { docs: docs, count: count };
+  }
+
+  // Parse the settlement workbook (single flat table, header row 0).
+  function parseSettlement(buf){
+    var rows = sSheetRows(sReadWorkbook(buf));
+    if(!rows.length) throw new Error('Settlement file is empty.');
+    var hdr = rows[0];
+    var cScheme = findCol(hdr, {exact:['Settlement Scheme'], contains:['settlement scheme']});
+    var cDoc    = findCol(hdr, {exact:['Doc No.','DocNo.'], contains:['doc no']});
+    var cMDoc   = findCol(hdr, {exact:['Matching Doc No.'], contains:['matching doc no']});
+    var cDeb    = findCol(hdr, {exact:['Debit Amt (OC)'], contains:['debit amt (oc)','debit amt(oc)']});
+    var cCred   = findCol(hdr, {exact:['Credit Amt (OC)'], contains:['credit amt (oc)','credit amt(oc)']});
+    if(cDoc<0 || cMDoc<0) throw new Error('Settlement file: "Doc No." / "Matching Doc No." columns not found.');
+    if(cScheme<0) throw new Error('Settlement file: "Settlement Scheme" column not found.');
+
+    var pairs = {};        // "A||B" (sorted) -> scheme
+    var settledOC = {};    // DocNo -> summed settled principal (OC)
+    var skippedScheme = 0;
+    for(var i=1;i<rows.length;i++){
+      var r = rows[i]; if(!r) continue;
+      var doc = sTrim(r[cDoc]); if(doc==='') continue;
+      var mdoc = sTrim(r[cMDoc]);
+      var scheme = sTrim(r[cScheme]);
+      if(scheme === 'Realized Ex. Gain/Loss' || scheme === 'Discount Settlement'){ skippedScheme++; continue; }
+      // settled principal for this doc (one of debit/credit is populated)
+      settledOC[doc] = (settledOC[doc]||0) + sNum(cDeb>=0?r[cDeb]:0) + sNum(cCred>=0?r[cCred]:0);
+      if(mdoc==='') continue;
+      var key = [doc, mdoc].sort().join('||');
+      if(!(key in pairs)) pairs[key] = scheme;
+    }
+    return { pairs: pairs, settledOC: settledOC, skippedScheme: skippedScheme };
+  }
+
+  // union-find style connected components over the settlement pairs
+  function components(pairs){
+    var adj = {};
+    function add(a,b){ (adj[a]=adj[a]||{})[b]=1; (adj[b]=adj[b]||{})[a]=1; }
+    for(var key in pairs){ var p = key.split('||'); add(p[0], p[1]); }
+    var seen = {}, comps = [];
+    for(var node in adj){
+      if(seen[node]) continue;
+      var stack = [node], comp = [];
+      while(stack.length){
+        var x = stack.pop();
+        if(seen[x]) continue;
+        seen[x] = 1; comp.push(x);
+        for(var nb in adj[x]) if(!seen[nb]) stack.push(nb);
+      }
+      comps.push(comp);
+    }
+    return comps;
+  }
+
+  // classify a set of transaction types -> {ok, kind, reason}
+  function typeCheck(types){
+    var set = {}; types.forEach(function(t){ set[t]=1; });
+    var has = function(t){ return !!set[t]; };
+    var any = function(list){ return list.some(has); };
+
+    var incomeTouch = has('D0') || has('D2');
+    if(incomeTouch){
+      // valid income group: only D0 & D2, both present
+      var onlyIncome = types.every(function(t){ return t==='D0'||t==='D2'; });
+      if(onlyIncome && has('D0') && has('D2')) return {ok:true, kind:'income'};
+      return {ok:false, kind:'income', reason:'D0/D2 group mixed with an incompatible type'};
+    }
+    var direct = any(['D1','F1-CXX-01']);
+    var borrow = has('F1-CXX-03');
+    var d3     = has('D3');
+    var f3     = any(['F3-CXX-001','F3-CXX-002']);
+    if(direct && f3)      return {ok:false, kind:'expense', reason:'D1/F1-Cxx-01 must settle against D3, not F3-Cxx-001'};
+    if(borrow && d3)      return {ok:false, kind:'expense', reason:'F1-Cxx-03 must settle against F3-Cxx-001, not D3'};
+    if(direct && !d3)     return {ok:false, kind:'expense', reason:'D1/F1-Cxx-01 present without a matching D3'};
+    if(borrow && !f3)     return {ok:false, kind:'expense', reason:'F1-Cxx-03 present without a matching F3-Cxx-001'};
+    return {ok:true, kind:'expense'};
+  }
+
+  function isBorrowType(t){ return t==='F1-CXX-03' || t==='F3-CXX-001' || t==='F3-CXX-002'; }
+
+  // main analysis
+  function analyzeSettle(){
+    if(!S.files.settle) throw new Error('The Settlement file is required.');
+
+    var docs = {}, srcCount = {ap:0,py:0,ar:0,rc:0};
+    ['ap','py','ar','rc'].forEach(function(kind){
+      var parsed = S.files.settle && S.parsedDetail && S.parsedDetail[kind];
+      if(parsed){
+        for(var d in parsed.docs){ docs[d] = parsed.docs[d]; }
+        srcCount[kind] = parsed.count;
+      }
+    });
+
+    var st = S.parsedSettle;
+    var comps = components(st.pairs);
+
+    var rowsOut = [];   // one entry per component (for the results table)
+    var tally = { total:comps.length, pass:0, typeErr:0, amtErr:0, missing:0, fxDiff:0, exempt:0 };
+
+    comps.forEach(function(comp){
+      var sorted = comp.slice().sort(function(a,b){ return a.localeCompare(b,undefined,{numeric:true}); });
+      var miss = sorted.filter(function(d){ return !docs[d]; });
+      if(miss.length){
+        tally.missing++;
+        rowsOut.push({ status:'missing', docs:sorted, kind:'', cur:'', L:null, R:null, diff:null,
+          note:'Missing detail: ' + miss.join(', ') + ' not in the uploaded files \u2014 group skipped' });
+        return;
+      }
+      var types = sorted.map(function(d){ return docs[d].type; });
+      var tc = typeCheck(types);
+      if(!tc.ok){
+        tally.typeErr++;
+        rowsOut.push({ status:'typeErr', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
+          note:'Type mismatch: ' + tc.reason + ' (' + types.join(' / ') + ')' });
+        return;
+      }
+
+      var isGree   = sorted.some(function(d){ return docs[d].gree; });
+      var isBorrow = types.some(isBorrowType);
+      if(isGree || isBorrow){
+        tally.exempt++;
+        rowsOut.push({ status:'exempt', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
+          note:'Type matched; ' + (isGree?'GREE supplier (payroll)':'borrow-reimbursement') + ' \u2014 tax check exempt' });
+        return;
+      }
+
+      // amount check — proportional settled VAT (FC/MXN)
+      var settledVat = function(d){
+        var o = docs[d];
+        var s = st.settledOC[d] || 0;
+        if(o.amt === 0) return 0;
+        return o.vat * (s / o.amt);
+      };
+      var isD0 = function(d){ return docs[d].type==='D0'; };
+      var isD2 = function(d){ return docs[d].type==='D2'; };
+      var isDebitSide, isCreditSide;
+      if(tc.kind==='income'){ isDebitSide = isD0; isCreditSide = isD2; }
+      else { isDebitSide = function(d){ var t=docs[d].type; return t==='D1'||t==='F1-CXX-01'; };
+             isCreditSide = function(d){ return docs[d].type==='D3'; }; }
+
+      // mixed-rate guard: partial settlement of a doc with >1 VAT rate makes
+      // proportional VAT an estimate rather than exact -> warn instead of error
+      var riskyMixed = sorted.some(function(d){
+        var o = docs[d]; var s = st.settledOC[d]||0;
+        var partial = Math.abs(sCents(s) - sCents(o.amt)) > 1;
+        return partial && o.mixedRate;
+      });
+
+      var L = 0, R = 0;
+      sorted.forEach(function(d){
+        if(isDebitSide(d))  L += settledVat(d);
+        if(isCreditSide(d)) R += settledVat(d);
+      });
+      L = Math.round(L*100)/100; R = Math.round(R*100)/100;
+      var diff = Math.round((L-R)*100)/100;
+
+      var curs = {}; sorted.forEach(function(d){ if(docs[d].cur) curs[docs[d].cur]=1; });
+      var curList = Object.keys(curs);
+      var allMXN = curList.length>0 && curList.every(function(c){ return c==='MXN'; });
+      var curLabel = curList.join('/') || '—';
+
+      if(riskyMixed){
+        tally.missing++; // partial + mixed-rate: bucket with missing for manual review
+        tally.fxDiff += 0;
+        rowsOut.push({ status:'review', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+          note:'Partial settlement with mixed VAT rates; prorated tax is approximate \u2014 manual review' });
+        return;
+      }
+
+      if(Math.abs(diff) < 0.005){
+        tally.pass++;
+        rowsOut.push({ status:'pass', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:0,
+          note:'Type matched, VAT offsets exactly' });
+      } else if(allMXN){
+        tally.amtErr++;
+        rowsOut.push({ status:'amtErr', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+          note:'MXN VAT not equal, diff ' + diff.toFixed(2) + ' \u2014 no tolerance' });
+      } else {
+        tally.fxDiff++;
+        rowsOut.push({ status:'fxDiff', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+          note:'Foreign currency, diff ' + diff.toFixed(2) });
+      }
+    });
+
+    // sort: errors first, then review, missing, fx, exempt, pass
+    var order = { typeErr:0, amtErr:1, review:2, missing:3, fxDiff:4, exempt:5, pass:6 };
+    rowsOut.sort(function(a,b){
+      if(order[a.status]!==order[b.status]) return order[a.status]-order[b.status];
+      return a.docs[0].localeCompare(b.docs[0],undefined,{numeric:true});
+    });
+
+    return { tally: tally, rows: rowsOut, srcCount: srcCount, skippedScheme: st.skippedScheme };
+  }
+
+  // ---------------- UI wiring ----------------
+
+  function slog(msg, type){
+    var box = document.getElementById('s-log-box');
+    box.classList.add('visible');
+    var line = document.createElement('div');
+    line.className = 'log-line' + (type ? ' '+type : '');
+    line.textContent = msg;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+  function sClearLog(){ var b=document.getElementById('s-log-box'); b.innerHTML=''; b.classList.remove('visible'); }
+  function sErr(msg){ var e=document.getElementById('s-err-banner'); e.textContent=msg; e.style.display=msg?'block':'none'; }
+  function sReady(){
+    var ok = !!S.files.settle;
+    document.getElementById('s-run-btn').disabled = !ok;
+  }
+
+  function sFileChosen(kind, input){
+    var f = input.files && input.files[0];
+    if(!f) return;
+    S.files[kind] = f;
+    var card = document.getElementById('s-card-'+kind);
+    card.classList.add('loaded');
+    document.getElementById('s-name-'+kind).textContent = f.name;
+    sReady();
+  }
+  function sDrag(e, kind){ e.preventDefault(); document.getElementById('s-card-'+kind).classList.add('dragover'); }
+  function sUndrag(kind){ document.getElementById('s-card-'+kind).classList.remove('dragover'); }
+  function sDrop(e, kind){
+    e.preventDefault(); sUndrag(kind);
+    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(!f) return;
+    var inp = document.getElementById('s-file-'+kind);
+    inp.files = e.dataTransfer.files;
+    sFileChosen(kind, inp);
+  }
+  function sClearAll(){
+    S.files = { settle:null, ap:null, py:null, ar:null, rc:null };
+    S.parsedDetail = null; S.parsedSettle = null; S.result = null;
+    ['settle','ap','py','ar','rc'].forEach(function(k){
+      var c=document.getElementById('s-card-'+k); if(c) c.classList.remove('loaded');
+      var n=document.getElementById('s-name-'+k); if(n) n.textContent='';
+      var i=document.getElementById('s-file-'+k); if(i) i.value='';
+    });
+    document.getElementById('s-results').classList.remove('visible');
+    sClearLog(); sErr(''); sReady();
+  }
+
+  async function sRun(){
+    sErr(''); sClearLog();
+    var btn = document.getElementById('s-run-btn');
+    btn.classList.add('loading'); btn.disabled = true;
+    try{
+      slog('Reading settlement file…','info');
+      S.parsedSettle = parseSettlement(await sReadFile(S.files.settle));
+      slog('Settlement pairs: ' + Object.keys(S.parsedSettle.pairs).length +
+           (S.parsedSettle.skippedScheme? ' · skipped ' + S.parsedSettle.skippedScheme + ' rows (Realized Ex. Gain/Loss / Discount Settlement)':''),'ok');
+
+      S.parsedDetail = {};
+      var map = { ap:'A/P', py:'Payment', ar:'A/R', rc:'Collection' };
+      for(var kind in map){
+        if(S.files[kind]){
+          slog('Parsing ' + map[kind] + ' detail…','info');
+          S.parsedDetail[kind] = parseDetail(await sReadFile(S.files[kind]), map[kind]);
+          slog(map[kind] + ' documents: ' + S.parsedDetail[kind].count,'ok');
+        }
+      }
+
+      slog('Grouping settlements and checking type + tax…','info');
+      var res = analyzeSettle();
+      S.result = res;
+      sRender(res);
+      var t = res.tally;
+      slog('Done. ' + t.total + ' groups · ' + t.pass + ' pass · ' +
+           t.typeErr + ' type · ' + t.amtErr + ' amount · ' + t.missing + ' missing.',
+           (t.typeErr||t.amtErr)?'error':'ok');
+    }catch(err){
+      sErr(err.message || String(err));
+      slog('Error: ' + (err.message||err),'error');
+    }finally{
+      btn.classList.remove('loading'); sReady();
+    }
+  }
+
+  function statCard(num, label, cls){
+    return '<div class="stat-card'+(cls==='warn'?' has-warn':'')+'">'+
+           '<div class="stat-num'+(cls?' '+cls:'')+'">'+num+'</div>'+
+           '<div class="stat-label">'+label+'</div></div>';
+  }
+
+  var STATUS_LABEL = {
+    typeErr:'Type mismatch', amtErr:'Amount error', review:'Review', missing:'Missing detail',
+    fxDiff:'FX diff', exempt:'Exempt', pass:'Pass'
+  };
+  var STATUS_CLASS = {
+    typeErr:'s-badge-err', amtErr:'s-badge-err', review:'s-badge-warn', missing:'s-badge-warn',
+    fxDiff:'s-badge-info', exempt:'s-badge-mute', pass:'s-badge-ok'
+  };
+
+  function fmtMoney(n){
+    if(n===null||n===undefined) return '';
+    return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function sRender(res){
+    var t = res.tally;
+    document.getElementById('s-stats-row').innerHTML =
+      statCard(t.typeErr,'Type mismatch', t.typeErr?'warn':'') +
+      statCard(t.amtErr,'Amount error', t.amtErr?'warn':'') +
+      statCard(t.missing,'Missing','') +
+      statCard(t.fxDiff,'FX diff','') +
+      statCard(t.pass,'Pass','ok') +
+      statCard(t.total,'Groups','');
+
+    // show only non-pass groups by default in the table, but keep a toggle
+    var showAll = document.getElementById('s-show-all') && document.getElementById('s-show-all').checked;
+    var visible = res.rows.filter(function(r){ return showAll ? true : r.status!=='pass' && r.status!=='exempt'; });
+
+    var head = '<tr>'+
+      '<th>Status</th><th>Type</th><th>Documents</th><th>Currency</th>'+
+      '<th class="s-num">Debit VAT</th><th class="s-num">Credit VAT</th>'+
+      '<th class="s-num">Diff</th><th>Note</th></tr>';
+    document.getElementById('s-tbl-head').innerHTML = head;
+
+    if(!visible.length){
+      document.getElementById('s-tbl-body').innerHTML =
+        '<tr><td colspan="8" class="s-clean">✓ No settlement groups need attention.'+
+        (showAll?'':' (tick “Show all” to see pass / exempt groups)')+'</td></tr>';
+    } else {
+      var kindZh = {income:'Income', expense:'Expense', '':''};
+      var html = visible.map(function(r){
+        var badge = '<span class="s-badge '+(STATUS_CLASS[r.status]||'')+'">'+(STATUS_LABEL[r.status]||r.status)+'</span>';
+        var chip = function(d){ return '<span class="s-doc">'+d+'</span>'; };
+        var docsHtml;
+        if(r.docs.length <= 2){
+          docsHtml = r.docs.map(chip).join(' ');
+        } else {
+          docsHtml = r.docs.slice(0,2).map(chip).join(' ') +
+            '<details class="s-more"><summary>+'+(r.docs.length-2)+' more</summary>'+
+            '<div class="s-more-body">'+r.docs.slice(2).map(chip).join(' ')+'</div></details>';
+        }
+        var diffCls = (r.status==='amtErr') ? 's-diff-err' : (r.status==='fxDiff'?'s-diff-info':'');
+        return '<tr class="s-row-'+r.status+'">'+
+          '<td>'+badge+'</td>'+
+          '<td class="s-kind">'+(kindZh[r.kind]||'')+'</td>'+
+          '<td class="s-docs">'+docsHtml+'</td>'+
+          '<td class="s-cur">'+(r.cur||'')+'</td>'+
+          '<td class="s-num">'+(r.L===null?'':fmtMoney(r.L))+'</td>'+
+          '<td class="s-num">'+(r.R===null?'':fmtMoney(r.R))+'</td>'+
+          '<td class="s-num '+diffCls+'">'+(r.diff===null?'':fmtMoney(r.diff))+'</td>'+
+          '<td class="s-note">'+r.note+'</td></tr>';
+      }).join('');
+      document.getElementById('s-tbl-body').innerHTML = html;
+    }
+    document.getElementById('s-results').classList.add('visible');
+  }
+
+  function sExport(){
+    if(!S.result) return;
+    var aoa = [['Status','Type','Documents','Currency','Debit VAT','Credit VAT','Diff','Note']];
+    S.result.rows.forEach(function(r){
+      aoa.push([
+        STATUS_LABEL[r.status]||r.status,
+        ({income:'Income',expense:'Expense','':''})[r.kind]||'',
+        r.docs.join(', '),
+        r.cur||'',
+        r.L===null?'':r.L,
+        r.R===null?'':r.R,
+        r.diff===null?'':r.diff,
+        r.note
+      ]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{wch:9},{wch:6},{wch:40},{wch:8},{wch:15},{wch:15},{wch:12},{wch:60}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Settlement Check');
+    var now = new Date();
+    var stamp = now.getFullYear()+String(now.getMonth()+1).padStart(2,'0');
+    XLSX.writeFile(wb, 'Settlement_reconciliation_'+stamp+'.xlsx');
+  }
+
+  // expose the handful of names referenced by inline HTML attributes
+  window.sFileChosen = sFileChosen;
+  window.sDrag = sDrag;
+  window.sUndrag = sUndrag;
+  window.sDrop = sDrop;
+  window.sClearAll = sClearAll;
+  window.sRun = sRun;
+  window.sExport = sExport;
+  window.sToggleAll = function(){ if(S.result) sRender(S.result); };
+
+})();
+
 
 </script>
