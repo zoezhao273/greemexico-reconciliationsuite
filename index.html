@@ -912,6 +912,13 @@ main{ padding:18px 0 64px }
 #view-settle .upload-card input[type=file]{
     position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
   }
+#view-settle .s-clearbtn{ display:none; position:absolute; top:12px; right:12px; z-index:3;
+    font-family:var(--sans); font-size:11.5px; font-weight:700; color:var(--ink3);
+    background:#fff; border:1px solid var(--border); border-radius:7px; padding:4px 10px; cursor:pointer; }
+#view-settle .s-clearbtn:hover{ color:var(--err); border-color:#E7C3BD; background:#FCF4F2; }
+#view-settle .upload-card.loaded .s-clearbtn{ display:inline-block; }
+#view-settle .upload-card.checking{ border-color:var(--accent); background:var(--accent-light); }
+#view-settle .upload-card.checking .upload-filename{ display:block; color:var(--ink3); }
 #view-settle .upload-role{
     font-family: var(--mono);
     font-size: 12px;
@@ -1459,6 +1466,14 @@ main{ padding:18px 0 64px }
 #view-settle .s-chain-docs .s-doc{ display:inline-block; width:auto; margin:0; }
 #view-settle .s-bridge{ background:#FAECE7; color:#712B13; border:1px solid #F0997B; font-weight:700; }
 #view-settle .s-chain-foot{ font-size:11.5px; color:var(--ink2); margin-top:10px; }
+/* collapsible status groups */
+#view-settle .s-group-head{ cursor:pointer; }
+#view-settle .s-group-head > td{ background:var(--paper2); padding:9px 12px; border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border); overflow:visible; white-space:nowrap; }
+#view-settle .s-group-head:hover > td{ background:var(--paper3); }
+#view-settle .s-group-caret{ display:inline-block; width:16px; color:var(--ink3); font-size:11px; text-align:center; }
+#view-settle .s-group-count{ margin-left:8px; font-size:11px; font-weight:700; color:var(--ink3); }
+#view-settle .s-grp-hidden{ display:none; }
 
 /* ===== DIOT Creation tool (scoped under #view-diot) ===== */
 :where(#view-diot) *{ margin:0; padding:0 }
@@ -1836,7 +1851,8 @@ main{ padding:18px 0 64px }
 
   <div class="upload-grid">
     <div class="upload-card" id="s-card-settle" ondragover="sDrag(event,'settle')" ondragleave="sUndrag('settle')" ondrop="sDrop(event,'settle')">
-      <input type="file" id="s-file-settle" accept=".xlsx,.xls" onchange="sFileChosen('settle',this)">
+      <input type="file" id="s-file-settle" accept=".xlsx,.xls,.xlsm" onchange="sPick('settle',this)">
+      <button type="button" class="s-clearbtn" title="Remove this file" onclick="sClearOne(event,'settle')">Clear</button>
       <div class="upload-role">NCC / Settlement</div>
       <div class="upload-title">Settlement Detail — required</div>
       <div class="upload-hint">.xlsx · links AP/PY and AR/RC · one row per matched pair</div>
@@ -1851,14 +1867,16 @@ main{ padding:18px 0 64px }
 
   <div class="s-two-col" style="margin-bottom:14px">
     <div class="upload-card" id="s-card-ap" ondragover="sDrag(event,'ap')" ondragleave="sUndrag('ap')" ondrop="sDrop(event,'ap')">
-      <input type="file" id="s-file-ap" accept=".xlsx,.xls" onchange="sFileChosen('ap',this)">
+      <input type="file" id="s-file-ap" accept=".xlsx,.xls,.xlsm" onchange="sPick('ap',this)">
+      <button type="button" class="s-clearbtn" title="Remove this file" onclick="sClearOne(event,'ap')">Clear</button>
       <div class="upload-role">NCC / A/P</div>
       <div class="upload-title">A/P Detail</div>
       <div class="upload-hint">.xlsx · D1 / F1-Cxx-01 / F1-Cxx-03</div>
       <div class="upload-filename" id="s-name-ap"></div>
     </div>
     <div class="upload-card" id="s-card-py" ondragover="sDrag(event,'py')" ondragleave="sUndrag('py')" ondrop="sDrop(event,'py')">
-      <input type="file" id="s-file-py" accept=".xlsx,.xls" onchange="sFileChosen('py',this)">
+      <input type="file" id="s-file-py" accept=".xlsx,.xls,.xlsm" onchange="sPick('py',this)">
+      <button type="button" class="s-clearbtn" title="Remove this file" onclick="sClearOne(event,'py')">Clear</button>
       <div class="upload-role">NCC / Payment</div>
       <div class="upload-title">Payment Detail</div>
       <div class="upload-hint">.xlsx · D3 / F3-Cxx-001 / F3-Cxx-002</div>
@@ -1868,14 +1886,16 @@ main{ padding:18px 0 64px }
 
   <div class="s-two-col" style="margin-bottom:24px">
     <div class="upload-card" id="s-card-ar" ondragover="sDrag(event,'ar')" ondragleave="sUndrag('ar')" ondrop="sDrop(event,'ar')">
-      <input type="file" id="s-file-ar" accept=".xlsx,.xls" onchange="sFileChosen('ar',this)">
+      <input type="file" id="s-file-ar" accept=".xlsx,.xls,.xlsm" onchange="sPick('ar',this)">
+      <button type="button" class="s-clearbtn" title="Remove this file" onclick="sClearOne(event,'ar')">Clear</button>
       <div class="upload-role">NCC / A/R</div>
       <div class="upload-title">A/R Detail</div>
       <div class="upload-hint">.xlsx · D0</div>
       <div class="upload-filename" id="s-name-ar"></div>
     </div>
     <div class="upload-card" id="s-card-rc" ondragover="sDrag(event,'rc')" ondragleave="sUndrag('rc')" ondrop="sDrop(event,'rc')">
-      <input type="file" id="s-file-rc" accept=".xlsx,.xls" onchange="sFileChosen('rc',this)">
+      <input type="file" id="s-file-rc" accept=".xlsx,.xls,.xlsm" onchange="sPick('rc',this)">
+      <button type="button" class="s-clearbtn" title="Remove this file" onclick="sClearOne(event,'rc')">Clear</button>
       <div class="upload-role">NCC / Collection</div>
       <div class="upload-title">Collection Detail</div>
       <div class="upload-hint">.xlsx · D2</div>
@@ -4168,7 +4188,8 @@ function diotDownloadXlsx(){
 
   var S = {
     files: { settle:null, ap:null, py:null, ar:null, rc:null },
-    result: null
+    result: null,
+    collapsed: {}
   };
 
   // ---- small helpers (scoped; do not touch the CFDI/Bank/DIOT globals) ----
@@ -4531,30 +4552,74 @@ function diotDownloadXlsx(){
     document.getElementById('s-run-btn').disabled = !ok;
   }
 
-  function sFileChosen(kind, input){
-    var f = input.files && input.files[0];
-    if(!f) return;
-    S.files[kind] = f;
-    var card = document.getElementById('s-card-'+kind);
-    card.classList.add('loaded');
-    document.getElementById('s-name-'+kind).textContent = f.name;
-    sReady();
+  var DETAIL_LABEL = { ap:'A/P', py:'Payment', ar:'A/R', rc:'Collection' };
+
+  function sResetCard(kind){
+    var c=document.getElementById('s-card-'+kind);
+    if(c){ c.classList.remove('loaded'); c.classList.remove('checking'); }
+    var n=document.getElementById('s-name-'+kind); if(n) n.textContent='';
+    var i=document.getElementById('s-file-'+kind); if(i) i.value='';
+    S.files[kind]=null;
+    if(kind==='settle'){ S.parsedSettle=null; }
+    else if(S.parsedDetail){ delete S.parsedDetail[kind]; }
   }
+
+  // Validate on upload (like Module 1): check the extension, then actually
+  // parse the file. The card only turns green if it genuinely reads, so a
+  // bad file is rejected immediately with a specific reason instead of
+  // silently looking "uploaded" and then failing at Run.
+  async function sHandleFile(kind, file){
+    if(!file) return;
+    var card = document.getElementById('s-card-'+kind);
+    if(!/\.(xlsx|xls|xlsm)$/i.test(file.name)){
+      sResetCard(kind);
+      sErr('\u201c'+file.name+'\u201d was rejected \u2014 Module 2 files must be Excel (.xlsx / .xls) NCC exports.');
+      sReady(); return;
+    }
+    card.classList.remove('loaded'); card.classList.add('checking');
+    document.getElementById('s-name-'+kind).textContent = 'Checking \u201c'+file.name+'\u201d\u2026';
+    try{
+      var buf = await sReadFile(file);
+      if(kind==='settle'){
+        S.parsedSettle = parseSettlement(buf);
+      } else {
+        if(!S.parsedDetail) S.parsedDetail = {};
+        S.parsedDetail[kind] = parseDetail(buf, DETAIL_LABEL[kind]);
+      }
+      S.files[kind] = file;
+      S.result = null;
+      card.classList.remove('checking'); card.classList.add('loaded');
+      document.getElementById('s-name-'+kind).textContent = file.name;
+      document.getElementById('s-results').classList.remove('visible');
+      sErr(''); sReady();
+    }catch(err){
+      sResetCard(kind);
+      var role = (kind==='settle') ? 'Settlement' : DETAIL_LABEL[kind];
+      sErr('\u201c'+file.name+'\u201d could not be read as the '+role+' file: ' + (err.message || err));
+      sReady();
+    }
+  }
+
+  function sPick(kind, input){ var f = input.files && input.files[0]; if(f) sHandleFile(kind, f); }
   function sDrag(e, kind){ e.preventDefault(); document.getElementById('s-card-'+kind).classList.add('dragover'); }
   function sUndrag(kind){ document.getElementById('s-card-'+kind).classList.remove('dragover'); }
   function sDrop(e, kind){
     e.preventDefault(); sUndrag(kind);
     var f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if(!f) return;
-    var inp = document.getElementById('s-file-'+kind);
-    inp.files = e.dataTransfer.files;
-    sFileChosen(kind, inp);
+    if(f) sHandleFile(kind, f);   // pass the File directly \u2014 never reassign input.files (throws in some browsers)
+  }
+  function sClearOne(e, kind){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    sResetCard(kind);
+    S.result = null;
+    document.getElementById('s-results').classList.remove('visible');
+    sErr(''); sReady();
   }
   function sClearAll(){
     S.files = { settle:null, ap:null, py:null, ar:null, rc:null };
-    S.parsedDetail = null; S.parsedSettle = null; S.result = null;
+    S.parsedDetail = {}; S.parsedSettle = null; S.result = null;
     ['settle','ap','py','ar','rc'].forEach(function(k){
-      var c=document.getElementById('s-card-'+k); if(c) c.classList.remove('loaded');
+      var c=document.getElementById('s-card-'+k); if(c){ c.classList.remove('loaded'); c.classList.remove('checking'); }
       var n=document.getElementById('s-name-'+k); if(n) n.textContent='';
       var i=document.getElementById('s-file-'+k); if(i) i.value='';
     });
@@ -4567,21 +4632,14 @@ function diotDownloadXlsx(){
     var btn = document.getElementById('s-run-btn');
     btn.classList.add('loading'); btn.disabled = true;
     try{
-      slog('Reading settlement file…','info');
-      S.parsedSettle = parseSettlement(await sReadFile(S.files.settle));
+      if(!S.parsedSettle) throw new Error('Please upload the Settlement file first.');
       slog('Settlement pairs: ' + Object.keys(S.parsedSettle.pairs).length +
            (S.parsedSettle.skippedScheme? ' · skipped ' + S.parsedSettle.skippedScheme + ' rows (Realized Ex. Gain/Loss / Discount Settlement)':''),'ok');
-
-      S.parsedDetail = {};
-      var map = { ap:'A/P', py:'Payment', ar:'A/R', rc:'Collection' };
-      for(var kind in map){
-        if(S.files[kind]){
-          slog('Parsing ' + map[kind] + ' detail…','info');
-          S.parsedDetail[kind] = parseDetail(await sReadFile(S.files[kind]), map[kind]);
-          slog(map[kind] + ' documents: ' + S.parsedDetail[kind].count,'ok');
+      ['ap','py','ar','rc'].forEach(function(kind){
+        if(S.parsedDetail && S.parsedDetail[kind]){
+          slog(DETAIL_LABEL[kind] + ' documents: ' + S.parsedDetail[kind].count,'ok');
         }
-      }
-
+      });
       slog('Grouping settlements and checking type + tax…','info');
       var res = analyzeSettle();
       S.result = res;
@@ -4644,7 +4702,10 @@ function diotDownloadXlsx(){
         (showAll?'':' (tick “Show all” to see pass / exempt groups)')+'</td></tr>';
     } else {
       var kindZh = {income:'Income', expense:'Expense', '':''};
-      var html = visible.map(function(r, idx){
+      var counts = {}; visible.forEach(function(r){ counts[r.status]=(counts[r.status]||0)+1; });
+      var built = visible.map(function(r, idx){
+        var collapsed = !!S.collapsed[r.status];
+        var hideCls = collapsed ? ' s-grp-hidden' : '';
         var badge = '<span class="s-badge '+(STATUS_CLASS[r.status]||'')+'">'+(STATUS_LABEL[r.status]||r.status)+'</span>';
         var chip = function(d){ return '<span class="s-doc">'+d+'</span>'; };
         var docsHtml;
@@ -4668,7 +4729,7 @@ function diotDownloadXlsx(){
         var isMulti = bats.length > 1;
         var chainBtn = isMulti ? '<button class="s-chain-btn" id="s-chain-btn-'+idx+'" onclick="sChain('+idx+')">view chain</button>' : '';
         var diffCls = (r.status==='amtErr') ? 's-diff-err' : (r.status==='fxDiff'?'s-diff-info':'');
-        var mainRow = '<tr class="s-row-'+r.status+'">'+
+        var mainRow = '<tr class="s-row-'+r.status+' s-grp'+hideCls+'" data-grp="'+r.status+'">'+
           '<td>'+badge+'</td>'+
           '<td class="s-kind">'+(kindZh[r.kind]||'')+'</td>'+
           '<td class="s-batchcell">'+batchHtml+'</td>'+
@@ -4678,25 +4739,41 @@ function diotDownloadXlsx(){
           '<td class="s-num">'+(r.R===null?'':fmtMoney(r.R))+'</td>'+
           '<td class="s-num '+diffCls+'">'+(r.diff===null?'':fmtMoney(r.diff))+'</td>'+
           '<td class="s-note">'+(r.note||'')+chainBtn+'</td></tr>';
-        if(!isMulti) return mainRow;
-        // chain-detail row: documents grouped under each batch, bridges highlighted
-        var b2d = {};
-        Object.keys(r.docBatches).forEach(function(d){ r.docBatches[d].forEach(function(b){ (b2d[b]=b2d[b]||[]).push(d); }); });
-        var lines = bats.map(function(b){
-          var ds = (b2d[b]||[]).slice().sort(function(a,c){ return a.localeCompare(c,undefined,{numeric:true}); });
-          var dchips = ds.map(function(d){
-            var bridge = (r.docBatches[d]||[]).length > 1;
-            return '<span class="s-doc'+(bridge?' s-bridge':'')+'">'+d+'</span>';
-          }).join(' ');
-          return '<div class="s-chain-line"><span class="s-batch s-chain-b">'+b+'</span><span class="s-chain-docs">'+dchips+'</span></div>';
-        }).join('');
-        var detail = '<tr class="s-chain-detail" id="s-chain-row-'+idx+'"><td colspan="9"><div class="s-chain">'+
-          '<div class="s-chain-title">Chain detail \u00b7 '+r.docs.length+' docs \u00b7 '+bats.length+' batches</div>'+
-          lines +
-          '<div class="s-chain-foot">Highlighted documents appear in more than one batch \u2014 these bridges are what link the batches into one group.</div>'+
-          '</div></td></tr>';
-        return mainRow + detail;
-      }).join('');
+        var rowHtml = mainRow;
+        if(isMulti){
+          var b2d = {};
+          Object.keys(r.docBatches).forEach(function(d){ r.docBatches[d].forEach(function(b){ (b2d[b]=b2d[b]||[]).push(d); }); });
+          var lines = bats.map(function(b){
+            var ds = (b2d[b]||[]).slice().sort(function(a,c){ return a.localeCompare(c,undefined,{numeric:true}); });
+            var dchips = ds.map(function(d){
+              var bridge = (r.docBatches[d]||[]).length > 1;
+              return '<span class="s-doc'+(bridge?' s-bridge':'')+'">'+d+'</span>';
+            }).join(' ');
+            return '<div class="s-chain-line"><span class="s-batch s-chain-b">'+b+'</span><span class="s-chain-docs">'+dchips+'</span></div>';
+          }).join('');
+          rowHtml += '<tr class="s-chain-detail s-grp'+hideCls+'" data-grp="'+r.status+'" id="s-chain-row-'+idx+'"><td colspan="9"><div class="s-chain">'+
+            '<div class="s-chain-title">Chain detail \u00b7 '+r.docs.length+' docs \u00b7 '+bats.length+' batches</div>'+
+            lines +
+            '<div class="s-chain-foot">Highlighted documents appear in more than one batch \u2014 these bridges are what link the batches into one group.</div>'+
+            '</div></td></tr>';
+        }
+        return { status: r.status, html: rowHtml };
+      });
+      // assemble with a collapsible header before each status group
+      var html = '', prevStatus = null;
+      built.forEach(function(row){
+        if(row.status !== prevStatus){
+          prevStatus = row.status;
+          var col = !!S.collapsed[row.status];
+          html += '<tr class="s-group-head" data-status="'+row.status+'" onclick="sGroupToggle(\''+row.status+'\')">'+
+            '<td colspan="9">'+
+              '<span class="s-group-caret">'+(col?'\u25B8':'\u25BE')+'</span>'+
+              '<span class="s-badge '+(STATUS_CLASS[row.status]||'')+'">'+(STATUS_LABEL[row.status]||row.status)+'</span>'+
+              '<span class="s-group-count">'+counts[row.status]+'</span>'+
+            '</td></tr>';
+        }
+        html += row.html;
+      });
       document.getElementById('s-tbl-body').innerHTML = html;
     }
     document.getElementById('s-results').classList.add('visible');
@@ -4728,7 +4805,8 @@ function diotDownloadXlsx(){
   }
 
   // expose the handful of names referenced by inline HTML attributes
-  window.sFileChosen = sFileChosen;
+  window.sPick = sPick;
+  window.sClearOne = sClearOne;
   window.sDrag = sDrag;
   window.sUndrag = sUndrag;
   window.sDrop = sDrop;
@@ -4742,6 +4820,16 @@ function diotDownloadXlsx(){
     if(!row) return;
     var open = row.classList.toggle('open');
     if(btn) btn.textContent = open ? 'hide chain' : 'view chain';
+  };
+  window.sGroupToggle = function(status){
+    S.collapsed[status] = !S.collapsed[status];
+    var collapsed = S.collapsed[status];
+    var body = document.getElementById('s-tbl-body');
+    if(!body) return;
+    var rows = body.querySelectorAll('[data-grp="'+status+'"]');
+    for(var i=0;i<rows.length;i++){ rows[i].classList.toggle('s-grp-hidden', collapsed); }
+    var head = body.querySelector('.s-group-head[data-status="'+status+'"] .s-group-caret');
+    if(head){ head.textContent = collapsed ? '\u25B8' : '\u25BE'; }
   };
 
 })();
