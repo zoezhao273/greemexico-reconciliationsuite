@@ -1405,13 +1405,18 @@ main{ padding:18px 0 64px }
 #view-settle .s-cur{ font-family:var(--mono); color:var(--ink2); white-space:nowrap; }
 #view-settle .s-kind{ color:var(--ink2); white-space:nowrap; }
 #view-settle .s-docs{ overflow:hidden; }
-#view-settle thead th:nth-child(1){ width:96px; }
-#view-settle thead th:nth-child(2){ width:74px; }
-#view-settle thead th:nth-child(3){ width:176px; }
-#view-settle thead th:nth-child(4){ width:70px; }
-#view-settle thead th:nth-child(5){ width:104px; }
-#view-settle thead th:nth-child(6){ width:104px; }
-#view-settle thead th:nth-child(7){ width:88px; }
+#view-settle .s-batchcell{ overflow:hidden; }
+#view-settle .s-batch{ display:block; font-family:var(--mono); font-size:11px; color:var(--ink2);
+    white-space:nowrap; margin:0 0 2px 0; }
+#view-settle thead th:nth-child(1){ width:130px; }  /* Status */
+#view-settle thead th:nth-child(2){ width:74px; }   /* Type */
+#view-settle thead th:nth-child(3){ width:156px; }  /* Batch No. (17-digit) */
+#view-settle thead th:nth-child(4){ width:148px; }  /* Documents */
+#view-settle thead th:nth-child(5){ width:50px; }   /* Currency */
+#view-settle thead th:nth-child(6){ width:92px; }   /* Debit VAT */
+#view-settle thead th:nth-child(7){ width:92px; }   /* Credit VAT */
+#view-settle thead th:nth-child(8){ width:92px; }   /* Diff */
+/* col 9 (Note) takes the remaining ~246px and wraps */
 #view-settle .s-doc{ display:block; width:max-content; max-width:100%; font-family:var(--mono); font-size:11.5px; color:var(--ink);
     background:var(--paper3); border-radius:4px; padding:1px 6px; margin:0 0 3px 0; word-break:break-all; }
 #view-settle .s-more{ display:block; margin-top:1px; }
@@ -1435,6 +1440,25 @@ main{ padding:18px 0 64px }
 #view-settle .s-row-typeErr td, #view-settle .s-row-amtErr td{ background:#FDF7F6; }
 #view-settle .s-row-missing td, #view-settle .s-row-review td{ background:#FDFBF3; }
 #view-settle .s-showall{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink2); margin-left:auto; }
+#view-settle .s-note{ position:relative; }
+#view-settle .s-chain-btn{ display:inline-block; margin-top:6px; cursor:pointer; font-family:var(--sans);
+    font-size:11px; font-weight:700; color:var(--accent); background:var(--accent-light);
+    border:1px solid var(--accent-mid); border-radius:20px; padding:2px 10px; }
+#view-settle .s-chain-btn:hover{ background:var(--accent-mid); }
+#view-settle .s-chain-detail{ display:none; }
+#view-settle .s-chain-detail.open{ display:table-row; }
+#view-settle .s-chain-detail > td{ background:var(--paper2); padding:0; overflow:visible; }
+#view-settle .s-chain{ padding:14px 20px; border-left:3px solid var(--accent-mid); }
+#view-settle .s-chain-title{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink3); margin-bottom:10px; }
+#view-settle .s-chain-line{ display:flex; align-items:flex-start; gap:12px; padding:6px 0; border-top:1px solid var(--border-light); }
+#view-settle .s-chain-line:first-of-type{ border-top:none; }
+#view-settle .s-chain-b{ flex:0 0 auto; margin:1px 0; color:var(--ink); background:var(--paper3);
+    border:1px solid var(--border); border-radius:4px; padding:2px 8px; }
+#view-settle .s-chain-docs{ display:flex; flex-wrap:wrap; gap:4px; }
+#view-settle .s-chain-docs .s-doc{ display:inline-block; width:auto; margin:0; }
+#view-settle .s-bridge{ background:#FAECE7; color:#712B13; border:1px solid #F0997B; font-weight:700; }
+#view-settle .s-chain-foot{ font-size:11.5px; color:var(--ink2); margin-top:10px; }
 
 /* ===== DIOT Creation tool (scoped under #view-diot) ===== */
 :where(#view-diot) *{ margin:0; padding:0 }
@@ -4301,11 +4325,13 @@ function diotDownloadXlsx(){
     var cMDoc   = findCol(hdr, {exact:['Matching Doc No.'], contains:['matching doc no']});
     var cDeb    = findCol(hdr, {exact:['Debit Amt (OC)'], contains:['debit amt (oc)','debit amt(oc)']});
     var cCred   = findCol(hdr, {exact:['Credit Amt (OC)'], contains:['credit amt (oc)','credit amt(oc)']});
+    var cBatch  = findCol(hdr, {exact:['Batch No.','BatchNo.'], contains:['batch no']});
     if(cDoc<0 || cMDoc<0) throw new Error('Settlement file: "Doc No." / "Matching Doc No." columns not found.');
     if(cScheme<0) throw new Error('Settlement file: "Settlement Scheme" column not found.');
 
     var pairs = {};        // "A||B" (sorted) -> scheme
     var settledOC = {};    // DocNo -> summed settled principal (OC)
+    var batchByDoc = {};   // DocNo -> { batchNo: 1 }
     var skippedScheme = 0;
     for(var i=1;i<rows.length;i++){
       var r = rows[i]; if(!r) continue;
@@ -4315,11 +4341,12 @@ function diotDownloadXlsx(){
       if(scheme === 'Realized Ex. Gain/Loss' || scheme === 'Discount Settlement'){ skippedScheme++; continue; }
       // settled principal for this doc (one of debit/credit is populated)
       settledOC[doc] = (settledOC[doc]||0) + sNum(cDeb>=0?r[cDeb]:0) + sNum(cCred>=0?r[cCred]:0);
+      if(cBatch>=0){ var bn=sTrim(r[cBatch]); if(bn!==''){ (batchByDoc[doc]=batchByDoc[doc]||{})[bn]=1; if(mdoc!=='') (batchByDoc[mdoc]=batchByDoc[mdoc]||{})[bn]=1; } }
       if(mdoc==='') continue;
       var key = [doc, mdoc].sort().join('||');
       if(!(key in pairs)) pairs[key] = scheme;
     }
-    return { pairs: pairs, settledOC: settledOC, skippedScheme: skippedScheme };
+    return { pairs: pairs, settledOC: settledOC, batchByDoc: batchByDoc, skippedScheme: skippedScheme };
   }
 
   // union-find style connected components over the settlement pairs
@@ -4389,18 +4416,22 @@ function diotDownloadXlsx(){
 
     comps.forEach(function(comp){
       var sorted = comp.slice().sort(function(a,b){ return a.localeCompare(b,undefined,{numeric:true}); });
+      var batchSet = {}; sorted.forEach(function(d){ var bb = st.batchByDoc[d]; if(bb) for(var bk in bb) batchSet[bk]=1; });
+      var batches = Object.keys(batchSet).sort();
+      var docBatches = {}; sorted.forEach(function(d){ docBatches[d] = st.batchByDoc[d] ? Object.keys(st.batchByDoc[d]).sort() : []; });
+      var push = function(o){ o.batches = batches; o.docBatches = docBatches; rowsOut.push(o); };
       var miss = sorted.filter(function(d){ return !docs[d]; });
       if(miss.length){
         tally.missing++;
-        rowsOut.push({ status:'missing', docs:sorted, kind:'', cur:'', L:null, R:null, diff:null,
-          note:'Missing detail: ' + miss.join(', ') + ' not in the uploaded files \u2014 group skipped' });
+        push({ status:'missing', docs:sorted, kind:'', cur:'', L:null, R:null, diff:null,
+          note:'' });
         return;
       }
       var types = sorted.map(function(d){ return docs[d].type; });
       var tc = typeCheck(types);
       if(!tc.ok){
         tally.typeErr++;
-        rowsOut.push({ status:'typeErr', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
+        push({ status:'typeErr', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
           note:'Type mismatch: ' + tc.reason + ' (' + types.join(' / ') + ')' });
         return;
       }
@@ -4409,7 +4440,7 @@ function diotDownloadXlsx(){
       var isBorrow = types.some(isBorrowType);
       if(isGree || isBorrow){
         tally.exempt++;
-        rowsOut.push({ status:'exempt', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
+        push({ status:'exempt', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
           note:'Type matched; ' + (isGree?'GREE supplier (payroll)':'borrow-reimbursement') + ' \u2014 tax check exempt' });
         return;
       }
@@ -4452,22 +4483,22 @@ function diotDownloadXlsx(){
       if(riskyMixed){
         tally.missing++; // partial + mixed-rate: bucket with missing for manual review
         tally.fxDiff += 0;
-        rowsOut.push({ status:'review', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+        push({ status:'review', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
           note:'Partial settlement with mixed VAT rates; prorated tax is approximate \u2014 manual review' });
         return;
       }
 
       if(Math.abs(diff) < 0.005){
         tally.pass++;
-        rowsOut.push({ status:'pass', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:0,
+        push({ status:'pass', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:0,
           note:'Type matched, VAT offsets exactly' });
       } else if(allMXN){
         tally.amtErr++;
-        rowsOut.push({ status:'amtErr', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
-          note:'MXN VAT not equal, diff ' + diff.toFixed(2) + ' \u2014 no tolerance' });
+        push({ status:'amtErr', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+          note:'MXN VAT not equal, diff ' + diff.toFixed(2) });
       } else {
         tally.fxDiff++;
-        rowsOut.push({ status:'fxDiff', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
+        push({ status:'fxDiff', docs:sorted, kind:tc.kind, cur:curLabel, L:L, R:R, diff:diff,
           note:'Foreign currency, diff ' + diff.toFixed(2) });
       }
     });
@@ -4602,18 +4633,18 @@ function diotDownloadXlsx(){
     var visible = res.rows.filter(function(r){ return showAll ? true : r.status!=='pass' && r.status!=='exempt'; });
 
     var head = '<tr>'+
-      '<th>Status</th><th>Type</th><th>Documents</th><th>Currency</th>'+
+      '<th>Status</th><th>Type</th><th>Batch No.</th><th>Documents</th><th>Currency</th>'+
       '<th class="s-num">Debit VAT</th><th class="s-num">Credit VAT</th>'+
       '<th class="s-num">Diff</th><th>Note</th></tr>';
     document.getElementById('s-tbl-head').innerHTML = head;
 
     if(!visible.length){
       document.getElementById('s-tbl-body').innerHTML =
-        '<tr><td colspan="8" class="s-clean">✓ No settlement groups need attention.'+
+        '<tr><td colspan="9" class="s-clean">✓ No settlement groups need attention.'+
         (showAll?'':' (tick “Show all” to see pass / exempt groups)')+'</td></tr>';
     } else {
       var kindZh = {income:'Income', expense:'Expense', '':''};
-      var html = visible.map(function(r){
+      var html = visible.map(function(r, idx){
         var badge = '<span class="s-badge '+(STATUS_CLASS[r.status]||'')+'">'+(STATUS_LABEL[r.status]||r.status)+'</span>';
         var chip = function(d){ return '<span class="s-doc">'+d+'</span>'; };
         var docsHtml;
@@ -4624,16 +4655,47 @@ function diotDownloadXlsx(){
             '<details class="s-more"><summary>+'+(r.docs.length-2)+' more</summary>'+
             '<div class="s-more-body">'+r.docs.slice(2).map(chip).join(' ')+'</div></details>';
         }
+        var bchip = function(b){ return '<span class="s-batch">'+b+'</span>'; };
+        var bats = r.batches || [];
+        var batchHtml;
+        if(!bats.length){ batchHtml = ''; }
+        else if(bats.length <= 2){ batchHtml = bats.map(bchip).join(''); }
+        else {
+          batchHtml = bats.slice(0,2).map(bchip).join('') +
+            '<details class="s-more"><summary>+'+(bats.length-2)+' more</summary>'+
+            '<div class="s-more-body">'+bats.slice(2).map(bchip).join('')+'</div></details>';
+        }
+        var isMulti = bats.length > 1;
+        var chainBtn = isMulti ? '<button class="s-chain-btn" id="s-chain-btn-'+idx+'" onclick="sChain('+idx+')">view chain</button>' : '';
         var diffCls = (r.status==='amtErr') ? 's-diff-err' : (r.status==='fxDiff'?'s-diff-info':'');
-        return '<tr class="s-row-'+r.status+'">'+
+        var mainRow = '<tr class="s-row-'+r.status+'">'+
           '<td>'+badge+'</td>'+
           '<td class="s-kind">'+(kindZh[r.kind]||'')+'</td>'+
+          '<td class="s-batchcell">'+batchHtml+'</td>'+
           '<td class="s-docs">'+docsHtml+'</td>'+
           '<td class="s-cur">'+(r.cur||'')+'</td>'+
           '<td class="s-num">'+(r.L===null?'':fmtMoney(r.L))+'</td>'+
           '<td class="s-num">'+(r.R===null?'':fmtMoney(r.R))+'</td>'+
           '<td class="s-num '+diffCls+'">'+(r.diff===null?'':fmtMoney(r.diff))+'</td>'+
-          '<td class="s-note">'+r.note+'</td></tr>';
+          '<td class="s-note">'+(r.note||'')+chainBtn+'</td></tr>';
+        if(!isMulti) return mainRow;
+        // chain-detail row: documents grouped under each batch, bridges highlighted
+        var b2d = {};
+        Object.keys(r.docBatches).forEach(function(d){ r.docBatches[d].forEach(function(b){ (b2d[b]=b2d[b]||[]).push(d); }); });
+        var lines = bats.map(function(b){
+          var ds = (b2d[b]||[]).slice().sort(function(a,c){ return a.localeCompare(c,undefined,{numeric:true}); });
+          var dchips = ds.map(function(d){
+            var bridge = (r.docBatches[d]||[]).length > 1;
+            return '<span class="s-doc'+(bridge?' s-bridge':'')+'">'+d+'</span>';
+          }).join(' ');
+          return '<div class="s-chain-line"><span class="s-batch s-chain-b">'+b+'</span><span class="s-chain-docs">'+dchips+'</span></div>';
+        }).join('');
+        var detail = '<tr class="s-chain-detail" id="s-chain-row-'+idx+'"><td colspan="9"><div class="s-chain">'+
+          '<div class="s-chain-title">Chain detail \u00b7 '+r.docs.length+' docs \u00b7 '+bats.length+' batches</div>'+
+          lines +
+          '<div class="s-chain-foot">Highlighted documents appear in more than one batch \u2014 these bridges are what link the batches into one group.</div>'+
+          '</div></td></tr>';
+        return mainRow + detail;
       }).join('');
       document.getElementById('s-tbl-body').innerHTML = html;
     }
@@ -4642,11 +4704,12 @@ function diotDownloadXlsx(){
 
   function sExport(){
     if(!S.result) return;
-    var aoa = [['Status','Type','Documents','Currency','Debit VAT','Credit VAT','Diff','Note']];
+    var aoa = [['Status','Type','Batch No.','Documents','Currency','Debit VAT','Credit VAT','Diff','Note']];
     S.result.rows.forEach(function(r){
       aoa.push([
         STATUS_LABEL[r.status]||r.status,
         ({income:'Income',expense:'Expense','':''})[r.kind]||'',
+        (r.batches&&r.batches.length)?r.batches.join(', '):'',
         r.docs.join(', '),
         r.cur||'',
         r.L===null?'':r.L,
@@ -4656,7 +4719,7 @@ function diotDownloadXlsx(){
       ]);
     });
     var ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{wch:9},{wch:6},{wch:40},{wch:8},{wch:15},{wch:15},{wch:12},{wch:60}];
+    ws['!cols'] = [{wch:9},{wch:6},{wch:19},{wch:40},{wch:8},{wch:15},{wch:15},{wch:12},{wch:60}];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Settlement Check');
     var now = new Date();
@@ -4673,6 +4736,13 @@ function diotDownloadXlsx(){
   window.sRun = sRun;
   window.sExport = sExport;
   window.sToggleAll = function(){ if(S.result) sRender(S.result); };
+  window.sChain = function(idx){
+    var row = document.getElementById('s-chain-row-'+idx);
+    var btn = document.getElementById('s-chain-btn-'+idx);
+    if(!row) return;
+    var open = row.classList.toggle('open');
+    if(btn) btn.textContent = open ? 'hide chain' : 'view chain';
+  };
 
 })();
 
