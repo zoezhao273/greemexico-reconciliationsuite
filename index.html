@@ -155,6 +155,13 @@
   .dup-rec .rno{ color:var(--mute) }
 
   /* ---------- Amortized (expected) panel ---------- */
+  .notice-panel{ display:none; padding:14px 18px; margin-bottom:22px; border:1px solid #E8D08A;
+    background:#FBF3DF; border-radius:12px }
+  .notice-panel .notice-row{ display:flex; gap:12px; align-items:flex-start }
+  .notice-panel .notice-mark{ color:var(--warn); font-size:18px; line-height:1.2; font-weight:700 }
+  .notice-panel .notice-body{ font-size:13px; color:var(--ink-2); max-width:80ch }
+  .notice-panel .notice-body b{ color:var(--warn) }
+  .notice-panel .notice-item{ margin:0 } .notice-panel .notice-item + .notice-item{ margin-top:6px }
   .amort-panel{ display:none; padding:18px 20px; margin-bottom:22px; border-color:#BFE0DA;
     background:#F0F8F6 }
   .amort-head{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px }
@@ -406,6 +413,14 @@ main{ padding:18px 0 64px }
     font-weight: 600;
   }
 #view-bank .upload-card.loaded .upload-filename{ display: block; }
+#view-bank .card-clear{
+    display:none; position:absolute; top:12px; right:12px; z-index:6;
+    font-family:var(--sans); font-size:11.5px; font-weight:700; letter-spacing:0.02em;
+    color:var(--ink3); background:#fff; border:1px solid var(--border); border-radius:7px;
+    padding:4px 10px; cursor:pointer; transition:color 0.15s, border-color 0.15s, background 0.15s;
+  }
+#view-bank .card-clear:hover{ color:var(--err); border-color:var(--err-mid); background:var(--err-light); }
+#view-bank .upload-card.loaded .card-clear{ display:inline-block; }
 #view-bank .optional-row{
     display: flex;
     align-items: center;
@@ -1730,6 +1745,13 @@ main{ padding:18px 0 64px }
       </div>
       <div class="breakdown" id="breakdown"></div>
 
+      <div class="notice-panel" id="noticePanel">
+        <div class="notice-row">
+          <span class="notice-mark">&#9432;</span>
+          <div class="notice-body" id="noticeBody"></div>
+        </div>
+      </div>
+
       <div class="card dup-panel" id="dupPanel">
         <div class="dup-head">
           <span class="dup-mark">&#9888;</span>
@@ -1800,7 +1822,7 @@ main{ padding:18px 0 64px }
         <div class="card check"><div class="num">Check 2</div><h4>Valid UUID</h4>
           <p>A UUID is valid only when it satisfies <b>both</b> conditions: (1) it <b>exists</b> in the CFDI file, and (2) the matched invoice's <code>Estatus</code> is exactly <code>Vigente</code>. A stray <code>:</code> prefix, spaces, or unusual dashes are tolerated; anything still unmatched is flagged as <b>not found</b>. If the UUID is found but its status is not <code>Vigente</code> (e.g. <code>Cancelado</code>), the line is flagged &mdash; the <b>CFDI</b> column shows the actual status and the <b>NCC</b> column shows the UUID &mdash; and all downstream checks (gas / total / VAT / FX / withholding / cash) are skipped because the invoice is already invalid. A line whose <code>Material = Non-Deductible Expense</code> is exempt from the <b>not-found</b> case only &mdash; these legitimately have no CFDI; a non-<code>Vigente</code> status is flagged regardless of material. If the CFDI file carries no status at all, the Vigente sub-check is silently skipped.</p></div>
         <div class="card check"><div class="num">Check 3</div><h4>Posting month</h4>
-          <p>NCC <code>DocDate</code> month must equal CFDI <code>Emisión</code> month. Run only when the record is <code>DocNo</code> starting with <code>AP</code> <i>and</i> <code>A/PType = CA Reimbursement</code>, or when the supplier contains <code>PETTY CASH</code>.</p></div>
+          <p>NCC <code>DocDate</code> month must equal CFDI <code>Emisión</code> month. Run only when the record is <code>DocNo</code> starting with <code>AP</code> <i>and</i> <code>A/PType = CA Reimbursement</code>, or when the supplier contains <code>PETTY CASH</code>.<br>Also, on every main-table record, the <code>* VoucherPeriod</code> (mm) must equal the month of <code>* DocDate</code> (yyyy-mm-dd); a mismatch is flagged as <i>Wrong voucher period</i>.</p></div>
         <div class="card check"><div class="num">Check 4</div><h4>Gas material</h4>
           <p>Runs when the invoice is gasoline &mdash; CFDI <code>Conceptos ClaveProdServ SAT</code> contains one of the SAT product/service codes <code>15101506</code>, <code>15101514</code>, or <code>15101515</code>. The required <code>Material</code> depends on how it was paid, and the <b>NCC</b> column is left blank in both cases:</p>
           <p style="margin-top:6px">&bull; <b>Forma de Pago &ne; 01</b> (not cash) &rarr; <code>Material</code> must be <code>Fuel - Private Vehicle</code> or <code>Fuel - Operational Vehicle</code>. Otherwise it reads <b>"For gasolina, Material = Fuel &amp; Supplier = Employee related if it's for private cars"</b>; the <b>CFDI</b> column shows the <code>Emisor Nombre</code>.</p>
@@ -1970,6 +1992,7 @@ main{ padding:18px 0 64px }
   <div class="upload-grid">
     <div class="upload-card" id="card-ncc" ondragover="drag(event,'ncc')" ondragleave="undrag('ncc')" ondrop="drop(event,'ncc')">
       <input type="file" id="file-ncc" accept=".xlsx,.xls" onchange="fileChosen('ncc',this)">
+      <button type="button" class="card-clear" title="Remove this file" onclick="clearOne('ncc',event)">Clear</button>
       <div class="upload-role">NCC / ERP</div>
       <div class="upload-title">NCC Bank Journal</div>
       <div class="upload-hint">.xlsx · accounting system export · OC/FC columns auto-detected</div>
@@ -1978,6 +2001,7 @@ main{ padding:18px 0 64px }
 
     <div class="upload-card" id="card-bank-icbc" ondragover="drag(event,'bank-icbc')" ondragleave="undrag('bank-icbc')" ondrop="drop(event,'bank-icbc')">
       <input type="file" id="file-bank-icbc" accept=".csv" onchange="fileChosen('bank-icbc',this)">
+      <button type="button" class="card-clear" title="Remove this file" onclick="clearOne('bank-icbc',event)">Clear</button>
       <div class="upload-role">ICBC / BANK</div>
       <div class="upload-title">Bank Statement — ICBC</div>
       <div class="upload-hint">.csv · UTF-16 tab-separated · 收入 / 支出金额 columns</div>
@@ -1993,6 +2017,7 @@ main{ padding:18px 0 64px }
   <div class="upload-grid" style="margin-bottom:24px">
     <div class="upload-card" id="card-bank-san" ondragover="drag(event,'bank-san')" ondragleave="undrag('bank-san')" ondrop="drop(event,'bank-san')">
       <input type="file" id="file-bank-san" accept=".csv" onchange="fileChosen('bank-san',this)">
+      <button type="button" class="card-clear" title="Remove this file" onclick="clearOne('bank-san',event)">Clear</button>
       <div class="upload-role">Santander / BANK</div>
       <div class="upload-title">Bank Statement — Santander</div>
       <div class="upload-hint">.csv · UTF-8 comma-separated · Descripcion / Cargo/Abono columns</div>
@@ -2000,6 +2025,7 @@ main{ padding:18px 0 64px }
     </div>
     <div class="upload-card" id="card-bank-bbva" ondragover="drag(event,'bank-bbva')" ondragleave="undrag('bank-bbva')" ondrop="drop(event,'bank-bbva')">
       <input type="file" id="file-bank-bbva" accept=".xlsx,.xls" onchange="fileChosen('bank-bbva',this)">
+      <button type="button" class="card-clear" title="Remove this file" onclick="clearOne('bank-bbva',event)">Clear</button>
       <div class="upload-role">BBVA / BANK</div>
       <div class="upload-title">Bank Statement — BBVA</div>
       <div class="upload-hint">.xlsx · Date / Concepto · Outflow / Inflow / Saldo columns</div>
@@ -2333,12 +2359,30 @@ function analyze(){
         mReimb=pick(mainMap,['reimbursementno.','reimbursementno']),
         mSup=pick(mainMap,['supplier','\u4f9b\u5e94\u5546']),          // 'Supplier' (AP) or '供应商' (PY)
         mApType=pick(mainMap,['a/ptype','aptype']),                    // AP doc type
-        mPmtType=pick(mainMap,['pmttype']);                            // PY payment type
+        mPmtType=pick(mainMap,['pmttype']),                            // PY payment type
+        mVper=pick(mainMap,['voucherperiod']);                         // '* VoucherPeriod' (mm) — accounting period
   const bCur=pick(bodyMap,['currency']), bRate=pick(bodyMap,['ex.rate','exrate']),
         bIncl=pick(bodyMap,['amtincl.vat(oc)','amtinclvat(oc)']), bVatCode=pick(bodyMap,['vatcode']),
         bUuid=pick(bodyMap,['uuid']), bMat=pick(bodyMap,['material']),
         bVat=pick(bodyMap,['vatamt(fc)']), bAwht=pick(bodyMap,['amtafterwht(oc)']);
   const at=(r,idx)=> idx>=0 ? r[idx] : null;
+
+  // Column presence guard. Every value below is resolved by header NAME, not by position, so the
+  // export can include any subset of optional fields (columns shift freely). But if a field that
+  // reconciliation genuinely depends on was not selected at export time, we stop with a clear,
+  // named message instead of silently matching against blanks and reporting wrong results.
+  const missingCols=[];
+  const need=(idx,label,where)=>{ if(idx<0) missingCols.push(label+' ('+where+')'); };
+  need(mDoc ,'DocNo.'         ,'main table');
+  need(mDate,'DocDate'        ,'main table');
+  need(bUuid,'UUID'           ,'detail table');
+  need(bIncl,'AmtIncl.VAT(OC)','detail table');
+  need(bVat ,'VATAmt(FC)'     ,'detail table');
+  need(bCur ,'Currency'       ,'detail table');
+  if(missingCols.length)
+    throw new Error('The NCC export is missing required column'+(missingCols.length>1?'s':'')+
+      ' (matched by field name): '+missingCols.join(', ')+
+      '. Please re-export the NCC file with '+(missingCols.length>1?'these fields':'this field')+' selected.');
 
   // exemptions from ALL checks
   const approved=approvedSets();                                         // reviewed whitelist (UUIDs + DocNos)
@@ -2355,6 +2399,7 @@ function analyze(){
     const docnoExempt=approved.docnos.has(docU);                          // approved DocNo. on the whitelist
     main[seqOf(r[0])]={docno, docdate:at(r,mDate), reimb:at(r,mReimb),
       supplier:sup, aptype:String(at(r,mApType)||'').trim(), pmttype:pmt,
+      voucherperiod:at(r,mVper), mainRow:i+1,
       exempt: supExempt || pyExempt || docnoExempt};
   }
   const details=[];
@@ -2658,16 +2703,45 @@ function analyze(){
     }
   }
 
+  // Check 3b — Voucher period consistency (NCC-internal, independent of the CFDI).
+  //   The '* VoucherPeriod' (mm) on the main table must equal the month of '* DocDate' (yyyy-mm-dd).
+  //   Runs once per main-table record, for EVERY record (invoice-exempt rows included: a wrong
+  //   posting period is a data-entry error regardless of whether the line ties to a CFDI).
+  //   VoucherPeriod is optional at export time, so if the column was not selected we DON'T fail the
+  //   whole run — we surface a non-blocking notice that this specific check did not run.
+  const notices=[];
+  if(mVper<0){
+    notices.push('The <b>VoucherPeriod</b> column was not found in the NCC export, so the voucher-period check (Check 3, part b) did not run. Re-export the NCC file with the <b>VoucherPeriod</b> field selected to enable it.');
+  } else {
+    for(const seq in main){
+      const m=main[seq];
+      const ym=nccYM(m.docdate);                                    // [year, month] parsed from DocDate
+      const vpRaw=m.voucherperiod;
+      const vp=parseInt(String(vpRaw==null?'':vpRaw).trim(),10);    // '01' | '1' | 1  ->  1
+      if(!ym || !Number.isFinite(vp)) continue;                     // this row has no DocDate or a blank VoucherPeriod: skip
+      if(ym[1]!==vp){
+        const dd=String(m.docdate==null?'':m.docdate).trim();
+        push({seq, row:m.mainRow, docno:m.docno||'', reimb:m.reimb, material:'',
+              check:'period',
+              reason:'Voucher period must equal the DocDate month (DocDate '+(dd||'blank')+')',
+              cfdi:String(ym[1]).padStart(2,'0'),                                                  // expected period, from DocDate
+              ncc:(vpRaw==null||String(vpRaw).trim()==='')?'(blank)':String(vpRaw).trim(),         // recorded VoucherPeriod
+              uuid:'', status:''});
+      }
+    }
+  }
+
   const summary={records:Object.keys(main).length, lines:details.length, invoices:invCount,
                  errors:errors.length, duplicates:duplicates.length, amortized:amortized.length,
                  byCheck:errors.reduce((a,e)=>{a[e.check]=(a[e.check]||0)+1;return a;},{})};
-  return {errors, duplicates, amortized, summary};
+  return {errors, notices, duplicates, amortized, summary};
 }
 
 /* ---------- rendering ---------- */
 const CHECK_META={
   uuid:{label:'Invalid UUID', cls:'b-uuid', color:'#B23A2E'},
   month:{label:'Wrong month', cls:'b-month', color:'#9A6700'},
+  period:{label:'Wrong voucher period', cls:'b-month', color:'#9A6700'},
   total:{label:'Total mismatch', cls:'b-total', color:'#B65A1E'},
   iva:{label:'VAT mismatch', cls:'b-iva', color:'#B65A1E'},
   gasmat:{label:'Gas material mismatch', cls:'b-gasmat', color:'#9A6700'},
@@ -2697,9 +2771,20 @@ function render(res){
     c.innerHTML=`<span class="dot" style="background:${color}"></span>${label} <b>${n}</b>`; bd.appendChild(c); };
   if(s.duplicates>0) chip('#B23A2E','Possible duplicates', s.duplicates);
   if(s.amortized>0)  chip('#156C63','Amortized invoices', s.amortized);
-  for(const k of ['uuid','month','gasmat','total','iva','fx','wht']){
+  for(const k of ['uuid','month','period','gasmat','total','iva','fx','wht']){
     if(!s.byCheck[k]) continue;
     chip(CHECK_META[k].color, CHECK_META[k].label, s.byCheck[k]);
+  }
+
+  // notices — checks that could not run (e.g. an optional column absent from the export). Non-blocking.
+  const notices=res.notices||[];
+  const noticePanel=document.getElementById('noticePanel');
+  const noticeBody=document.getElementById('noticeBody');
+  if(notices.length){
+    noticeBody.innerHTML=notices.map(t=>`<p class="notice-item">${t}</p>`).join('');
+    noticePanel.style.display='block';
+  } else {
+    noticeBody.innerHTML=''; noticePanel.style.display='none';
   }
 
   // duplicate panel (real duplicates only)
@@ -2756,7 +2841,7 @@ function render(res){
   }
   else{
     table.style.display=''; clean.style.display='none';
-    const order={uuid:1,month:2,gasmat:3,total:4,iva:5,fx:6,wht:7,cash:8};
+    const order={uuid:1,month:2,period:3,gasmat:4,total:5,iva:6,fx:7,wht:8,cash:9};
     const sorted=[...res.errors].sort((a,b)=>
       String(a.docno||'').localeCompare(String(b.docno||''),undefined,{numeric:true,sensitivity:'base'})
       || (order[a.check]-order[b.check]) || (parseInt(a.seq)-parseInt(b.seq)));
@@ -3098,6 +3183,26 @@ function checkReady() {
   document.getElementById('run-btn').disabled = !(nccFile && (bankFileIcbc || bankFileSan || bankFileBbva));
   const anyLoaded = nccFile || bankFileIcbc || bankFileSan || bankFileBbva;
   document.getElementById('clear-btn').classList.toggle('visible', !!anyLoaded);
+}
+
+// Remove a single uploaded file (per-card Clear button), leaving other cards intact.
+function clearOne(side, e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (side === 'ncc') {
+    nccFile = null;
+    const card = document.getElementById('card-ncc');
+    if (card) {
+      card.classList.remove('loaded');
+      document.getElementById('name-ncc').textContent = '';
+      const input = card.querySelector('input[type=file]');
+      if (input) input.value = '';
+    }
+  } else {
+    clearBankSide(side);              // handles bank-icbc / bank-san / bank-bbva (state + card + input)
+  }
+  checkReady();                       // re-gate the Run button and the global "Clear all" visibility
+  document.getElementById('results').classList.remove('visible');   // prior results no longer match the loaded set
+  bankClearError();
 }
 
 function clearAll() {
