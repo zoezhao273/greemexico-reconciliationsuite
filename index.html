@@ -128,6 +128,18 @@
   .uuid-v{ font-family:var(--mono); color:var(--ink-2); font-size:11.5px; word-break:break-all }
   .status-v{ color:var(--ink-2); font-size:12.5px; white-space:nowrap }
   .b-cancel{ background:#F8D7D2; color:#8A1C12; border:1px solid #E7B0A8; text-transform:uppercase; letter-spacing:.04em }
+  /* collapsible Month groups on the issue list */
+  #resultTable .m-group-head{ cursor:pointer }
+  #resultTable .m-group-head > td{ background:#F4F7F9; padding:9px 16px; border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line); white-space:nowrap; vertical-align:middle }
+  #resultTable .m-group-head:hover > td{ background:#EDF2F5 }
+  #resultTable tbody tr.m-group-head:hover{ background:transparent }
+  #resultTable .m-caret{ display:inline-block; width:14px; color:var(--mute); font-size:10px; text-align:center }
+  #resultTable .m-label{ margin-left:6px; font-size:11px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--mute) }
+  #resultTable .m-val{ margin-left:6px; font-family:var(--mono); font-size:13px; font-weight:700; color:var(--ink) }
+  #resultTable .m-count{ margin-left:10px; font-size:11px; font-weight:700; color:var(--mute) }
+  #resultTable .m-hidden{ display:none }
   tbody tr.row-cancel{ background:#FCF1EF }
   tbody tr.row-cancel:hover{ background:#FAE8E4 }
   tbody tr.row-cancel td{ border-bottom-color:#F0D6D1 }
@@ -2208,7 +2220,7 @@ main{ padding:18px 0 64px }
   </section>
 </main>
 
-<footer>Runs entirely in your browser &middot; no file ever leaves your computer. &middot; <span id="buildStamp" style="opacity:.6">Build 2026-07-03</span></footer>
+<footer>Runs entirely in your browser &middot; no file ever leaves your computer. &middot; <span id="buildStamp" style="opacity:.6">Build 2026-07-16</span></footer>
 
 <script>
 const WHT_CODE = 'PresetWHTL0 Donot used';
@@ -2540,7 +2552,19 @@ function analyze(){
   const NON_DEDUCTIBLE = 'non-deductible expense';
   const isMeals=m=>{ const s=String(m||'').toLowerCase(); return s.includes('meals') || s.includes('\u9910\u996e'); };
   const errors=[];
-  const push=(o)=>errors.push(o);
+  // Month = the '* VoucherPeriod' (mm) recorded on the main-table record the issue belongs to.
+  // Resolved once, centrally, so every check inherits it without touching each push site.
+  // '7' and '07' are the same accounting period, so pad to 2 digits: the raw value is kept
+  // otherwise, and a record with no VoucherPeriod (column absent or blank) yields '' -> the
+  // renderer groups those under an "Unassigned" bucket that sorts last.
+  const monthOf=(seq)=>{
+    const raw=(main[seq]||{}).voucherperiod;
+    const t=String(raw==null?'':raw).trim();
+    if(t==='') return '';
+    const n=parseInt(t,10);
+    return Number.isFinite(n) ? String(n).padStart(2,'0') : t;
+  };
+  const push=(o)=>errors.push({month:monthOf(o.seq), ...o});
   const fxNear=(a,b)=>{ if(a===null||b===null) return false; const base=Math.max(Math.abs(b),1e-6); return Math.abs(a-b)/base<=0.001; };
 
   // Pass A (per line): invalid UUID + withholding. Collect valid non-WHT lines into (seq|UUID) groups.
@@ -2842,10 +2866,35 @@ function render(res){
   else{
     table.style.display=''; clean.style.display='none';
     const order={uuid:1,month:2,period:3,gasmat:4,total:5,iva:6,fx:7,wht:8,cash:9};
+    // Month is now the primary sort key so the rows form contiguous, collapsible blocks.
+    // Within a month the previous ordering (DocNo. -> check -> record #) is unchanged.
+    // Records with no VoucherPeriod ('') sort last, after every real period.
+    const mKey=e=>String(e.month||'');
+    const mRank=v=> v==='' ? 99 : (parseInt(v,10) || 99);
     const sorted=[...res.errors].sort((a,b)=>
-      String(a.docno||'').localeCompare(String(b.docno||''),undefined,{numeric:true,sensitivity:'base'})
+      (mRank(mKey(a))-mRank(mKey(b)))
+      || String(a.docno||'').localeCompare(String(b.docno||''),undefined,{numeric:true,sensitivity:'base'})
       || (order[a.check]-order[b.check]) || (parseInt(a.seq)-parseInt(b.seq)));
+    const mCounts={};
+    for(const e of sorted){ const k=mKey(e); mCounts[k]=(mCounts[k]||0)+1; }
+    monthCollapsed={};                       // every group starts expanded on each run
+    let prevMonth=null;
     for(const e of sorted){
+      const mk=mKey(e);
+      if(mk!==prevMonth){                    // new month -> emit a collapsible header row
+        prevMonth=mk;
+        const hd=document.createElement('tr');
+        hd.className='m-group-head';
+        hd.setAttribute('data-month', mk);
+        hd.onclick=()=>monthGroupToggle(mk);
+        hd.innerHTML='<td colspan="9">'
+          +'<span class="m-caret">\u25BE</span>'
+          +'<span class="m-label">Month</span>'
+          +'<span class="m-val">'+(mk===''?'\u2014 Unassigned':mk)+'</span>'
+          +'<span class="m-count">'+mCounts[mk]+(mCounts[mk]===1?' issue':' issues')+'</span>'
+          +'</td>';
+        body.appendChild(hd);
+      }
       const m=CHECK_META[e.check];
       const isCancelled=/^cancel/i.test(String(e.status||'').trim());   // Cancelado / Cancelada / Cancelled
       const statusCell = e.status
@@ -2853,6 +2902,7 @@ function render(res){
         : '';
       const tr=document.createElement('tr');
       if(isCancelled) tr.className='row-cancel';
+      tr.setAttribute('data-mgrp', mk);
       tr.innerHTML=`
         <td class="docno">${e.docno||'—'}</td>
         <td class="reimb">${reimbDisplay(e.reimb)}</td>
@@ -2868,6 +2918,19 @@ function render(res){
   }
   document.getElementById('resultsSection').style.display='block';
   document.getElementById('resultsSection').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ---------- Month group collapse (issue list) ---------- */
+let monthCollapsed={};
+function monthGroupToggle(mk){
+  monthCollapsed[mk]=!monthCollapsed[mk];
+  const on=monthCollapsed[mk];
+  const body=document.getElementById('resultBody');
+  if(!body) return;
+  const sel='[data-mgrp="'+(window.CSS&&CSS.escape?CSS.escape(mk):mk)+'"]';
+  body.querySelectorAll(sel).forEach(r=>r.classList.toggle('m-hidden', on));
+  const car=body.querySelector('.m-group-head[data-month="'+(window.CSS&&CSS.escape?CSS.escape(mk):mk)+'"] .m-caret');
+  if(car) car.textContent = on ? '\u25B8' : '\u25BE';
 }
 
 /* ---------- export ---------- */
