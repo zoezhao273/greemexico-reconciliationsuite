@@ -3442,6 +3442,13 @@ function parseCsvBalance(s) {
 //   合计金额 ROW: first two decimal values = (收入合计, 支出合计).
 //
 function parseBankIcbc(buffer) {
+  // ── Parse ICBC Bank CSV (UTF-16, tab-separated) ── DIRECT COLUMN READ ──────
+  // Direction is read straight from the 收入金额 / 支出金额 columns rather than
+  // inferred from balance deltas. Columns are located BY HEADER NAME (not fixed
+  // index) so the parser survives the column shifts ICBC applies across accounts
+  // and currencies. Each logical cell is stored as  "value<TAB>"  and delimited
+  // by a further <TAB>, so empty columns appear as consecutive delimiters; the
+  // logicalCells() helper reconstructs the true column vector before reading.
   const bytes = new Uint8Array(buffer);
   const text  = (bytes[0] === 0xFF && bytes[1] === 0xFE)
     ? new TextDecoder('utf-16').decode(bytes)
@@ -3450,99 +3457,95 @@ function parseBankIcbc(buffer) {
   const lines = text.split('\r\n');
   const inflows = [], outflows = [];
   let totalInflow = null, totalOutflow = null;
-  let prevBalance = null;
 
   const isMonetary = s => /^\d[\d,]*\.\d+$/.test(s);
+  const num        = s => parseFloat(s.replace(/,/g, ''));
+  const fmtDate    = s => s.replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$3-$2-$1');
 
-  const getMonetary = raw => {
-    const result = [];
-    for (let k = 1; k < raw.length; k++) {
-      const s = raw[k].replace(/"/g, '').trim();
-      if (isMonetary(s)) result.push([k, parseFloat(s.replace(/,/g, ''))]);
+  // Reconstruct the logical column vector from an ICBC line. ICBC wraps each cell
+  // as  "content<TAB>"  and then delimits cells with another <TAB>, so a naive
+  // split('\t') fragments every quoted cell into two tokens. We re-merge them.
+  const logicalCells = line => {
+    const parts = line.split('\t');
+    const cells = [];
+    let i = 0;
+    while (i < parts.length) {
+      const p = parts[i];
+      if (p.startsWith('"')) {
+        const content = p.slice(1);
+        if (i + 1 < parts.length && parts[i + 1].startsWith('"')) {
+          cells.push(content.replace(/\t/g, '').trim());   // closing quote is next token
+          i += 2;
+        } else {
+          cells.push(content.replace(/"/g, '').replace(/\t/g, '').trim());
+          i += 1;
+        }
+      } else {
+        cells.push(p.trim());   // empty or unquoted cell
+        i += 1;
+      }
     }
-    return result;
+    return cells;
   };
 
-  const fmtDate = s => s.replace(/^(\d{2})-(\d{2})-(\d{4})$/, '$3-$2-$1');
+  // ── Locate the header row and resolve income/expense/balance columns by name ──
+  let colIncome = -1, colExpense = -1, colBalance = -1;
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 12); i++) {
+    if (!lines[i] || !lines[i].trim()) continue;
+    const h = logicalCells(lines[i]);
+    const iiIncome  = h.findIndex(c => c.includes('收入'));
+    const iiExpense = h.findIndex(c => c.includes('支出'));
+    const iiBalance = h.findIndex(c => c === '余额' || c.includes('余额'));
+    if (iiIncome >= 0 && iiExpense >= 0 && iiBalance >= 0) {
+      colIncome = iiIncome; colExpense = iiExpense; colBalance = iiBalance;
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) {
+    log('ICBC Bank: header row (收入金额/支出金额/余额) not found — cannot parse.');
+    return { inflows, outflows, totalInflow: null, totalOutflow: null };
+  }
 
-  const getDateSummary = raw => {
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const c     = logicalCells(line);
+    const label = (c[0] || '').trim();
+
+    // ── 合计金额 total row: first two positive monetary values = (收入合计, 支出合计) ──
+    if (label.includes('合计')) {
+      const vals = c.filter(x => isMonetary(x)).map(num).filter(v => v > 0);
+      if (vals.length >= 2) { totalInflow = vals[0]; totalOutflow = vals[1]; }
+      continue;
+    }
+
+    if (!/^\d+$/.test(label)) continue;   // skip anything that isn't a numbered data row
+
+    const incomeCell  = c[colIncome]  || '';
+    const expenseCell = c[colExpense] || '';
+    const income  = isMonetary(incomeCell)  ? num(incomeCell)  : null;
+    const expense = isMonetary(expenseCell) ? num(expenseCell) : null;
+
+    // ── Resolve date and summary from the row ──
     let date = '', summary = '';
-    for (let k = 1; k < raw.length; k++) {
-      const s = raw[k].replace(/"/g, '').trim();
+    for (let k = 1; k < c.length; k++) {
+      const s = c[k];
       if (!s) continue;
       if (!date && /^\d{2}-\d{2}-\d{4}$/.test(s)) { date = fmtDate(s); continue; }
       if (!summary && !isMonetary(s) && !/^\d{2}-\d{2}-\d{4}/.test(s) && s.length > 1 && k >= 4)
         summary = s;
     }
-    return { date, summary };
-  };
 
-  // ── First-row deferred classification.
-  // The balance-delta approach is reliable for every row except the first, because
-  // there is no prior balance to compare against.  We cache the first row and
-  // resolve its direction once the second row supplies prevBalance.
-  // At that point:  firstRowBalance vs prevBalance (= secondRowBalance)
-  //   • firstRowBalance > prevBalance  → first row was an inflow
-  //   • firstRowBalance < prevBalance  → first row was an outflow
-  // This avoids any fixed column assumption and works across all ICBC file layouts.
-  let pendingFirstRow = null;   // { amt, date, summary, balance }
-
-  for (let i = 7; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-
-    const raw   = line.split('\t');
-    const label = raw[0].replace(/"/g, '').trim();
-
-    if (label.includes('合计')) {
-      const vals = getMonetary(raw).map(([, v]) => v).filter(v => v > 0);
-      if (vals.length >= 2) { totalInflow = vals[0]; totalOutflow = vals[1]; }
-      continue;
+    if (income !== null && income > 0) {
+      inflows.push({ amt: Math.round(income * 100) / 100, date, summary, isNomina: false });
+    } else if (expense !== null && expense > 0) {
+      outflows.push({ amt: Math.round(expense * 100) / 100, date, summary,
+                      isNomina: /nomina|payroll/i.test(summary) });
     }
-
-    if (!label || !/^\d+$/.test(label)) continue;
-
-    const monetary = getMonetary(raw);
-    if (monetary.length === 0) continue;
-
-    const balance = monetary[monetary.length - 1][1];
-    const { date, summary } = getDateSummary(raw);
-
-    if (prevBalance !== null) {
-      // ── Resolve the deferred first row using the second row's delta as a proxy.
-      // We don't have the opening balance, so we use the second row's direction:
-      // if the account is declining (delta2 < 0), the first row was also an outflow.
-      if (pendingFirstRow !== null) {
-        const p = pendingFirstRow;
-        const delta2 = Math.round((balance - prevBalance) * 1e6) / 1e6;
-        if (delta2 < 0 || (delta2 === 0 && p.balance > 0)) {
-          outflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: /nomina|payroll/i.test(p.summary) });
-        } else {
-          inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
-        }
-        pendingFirstRow = null;
-      }
-
-      const delta = Math.round((balance - prevBalance) * 1e6) / 1e6;
-      if (Math.abs(delta) < 0.001) { prevBalance = balance; continue; }
-      const amt = Math.round(Math.abs(delta) * 100) / 100;
-      if (delta > 0) inflows.push({ amt, date, summary, isNomina: false });
-      else           outflows.push({ amt, date, summary, isNomina: /nomina|payroll/i.test(summary) });
-    } else {
-      // ── First data row: defer until we have a second balance to compare ──
-      if (monetary.length >= 2) {
-        const amt = Math.round(monetary[monetary.length - 2][1] * 100) / 100;
-        if (amt > 0) pendingFirstRow = { amt, date, summary, balance };
-      }
-    }
-
-    prevBalance = balance;
-  }
-
-  // If the file had only one data row, resolve with inflow as safe default
-  if (pendingFirstRow !== null) {
-    const p = pendingFirstRow;
-    inflows.push({ amt: p.amt, date: p.date, summary: p.summary, isNomina: false });
+    // Rows where both 收入金额 and 支出金额 are empty carry no cash movement and are skipped.
   }
 
   const nominaCount = outflows.filter(v => v.isNomina).length;
