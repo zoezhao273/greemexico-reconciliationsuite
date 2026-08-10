@@ -1968,9 +1968,9 @@ main{ padding:18px 0 64px }
     <h3>How it works</h3>
     <ul class="step-list">
       <li><div class="step-num">1</div><span>Upload the <strong>Settlement Detail</strong> — required. Then upload whichever document details your settlements reference: A/P, Payment, A/R, Collection.</span></li>
-      <li><div class="step-num">2</div><span><strong>Type match:</strong> each settlement group must pair correctly — <code>D1</code>/<code>F1-Cxx-01</code> with <code>D3</code>; <code>F1-Cxx-03</code> with <code>F3-Cxx-001</code>/<code>F3-Cxx-002</code>; <code>D0</code> with <code>D2</code>. Anything else is a type mismatch.</span></li>
+      <li><div class="step-num">2</div><span><strong>Type match:</strong> each settlement group must pair correctly — <code>D1</code>/<code>F1-Cxx-01</code> with <code>D3</code>; <code>F1-Cxx-03</code> with <code>F3-Cxx-001</code>/<code>F3-Cxx-002</code>; <code>D0</code> with <code>D2</code>; <code>D0</code> with <code>D1</code> (tax check skipped). Anything else is a type mismatch.</span></li>
       <li><div class="step-num">3</div><span><strong>Tax equal:</strong> the settled portion's VAT on each side must offset exactly. Partial settlements are handled by prorating VAT to the settled amount, so a half-paid invoice is not falsely flagged.</span></li>
-      <li><div class="step-num">4</div><span><strong>Exemptions:</strong> GREE-supplier (payroll) groups and borrow-reimbursement groups are checked for type only. <code>Realized Ex. Gain/Loss</code> and <code>Discount Settlement</code> schemes are skipped entirely.</span></li>
+      <li><div class="step-num">4</div><span><strong>Exemptions:</strong> GREE-supplier (payroll) groups, borrow-reimbursement groups, and <code>D0</code>/<code>D1</code> groups are checked for type only. <code>Realized Ex. Gain/Loss</code> and <code>Discount Settlement</code> schemes are skipped entirely.</span></li>
       <li><div class="step-num">5</div><span><strong>MXN</strong> groups allow zero tax difference; <strong>USD/CNY</strong> groups may differ (invoice-date vs settlement-date rate) — the gap is reported, not errored. Documents referenced by the settlement file but absent from the uploaded details raise a <strong>Missing detail</strong> warning and that group is skipped.</span></li>
     </ul>
   </div>
@@ -4347,7 +4347,8 @@ function diotDownloadXlsx(){
    Cross-checks NCC settlement links between AP/PY and AR/RC
    documents. Two goals:
      (1) Type match  — D1/F1-Cxx-01 <-> D3 ; F1-Cxx-03 <-> F3-Cxx-001/002 ;
-                        D0 <-> D2. Any other pairing is a mismatch.
+                        D0 <-> D2 ; D0 <-> D1 (VAT check skipped).
+                        Any other pairing is a mismatch.
      (2) Tax equal   — the settled portion's VATAmt(FC) on the debit side
                         must equal the credit side (MXN: zero tolerance;
                         USD/CNY: differences allowed, reported as FX diff).
@@ -4567,6 +4568,11 @@ function diotDownloadXlsx(){
     var has = function(t){ return !!set[t]; };
     var any = function(list){ return list.some(has); };
 
+    // D0 + D1 only (both present, nothing else) -> valid, VAT check skipped
+    if(has('D0') && has('D1') && types.every(function(t){ return t==='D0'||t==='D1'; })){
+      return {ok:true, kind:'d0d1'};
+    }
+
     var incomeTouch = has('D0') || has('D2');
     if(incomeTouch){
       // valid income group: only D0 & D2, both present
@@ -4625,6 +4631,13 @@ function diotDownloadXlsx(){
         tally.typeErr++;
         push({ status:'typeErr', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
           note:'Type mismatch: ' + tc.reason + ' (' + types.join(' / ') + ')' });
+        return;
+      }
+
+      if(tc.kind==='d0d1'){
+        tally.exempt++;
+        push({ status:'exempt', docs:sorted, kind:tc.kind, cur:'', L:null, R:null, diff:null,
+          note:'Type matched; D0/D1 group \u2014 tax check exempt' });
         return;
       }
 
